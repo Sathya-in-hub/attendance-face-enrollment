@@ -1,76 +1,86 @@
-/* ==========================================================================
-   Face Enrollment — client logic
 
-   Real-time face detection runs in the browser using face-api.js.
-   Captured frames are sent to the Python Flask backend for validation
-   and storage.
-   ========================================================================== */
-
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
-
+// Render backend
 const API_BASE = "https://attendance-face-enrollment.onrender.com";
 
-// Correct face-api.js model location
-const MODEL_URL = "https://justadudewhohacks.github.io/face-api.js/models";
+// IMPORTANT:
+// The npm package does NOT contain the model files under /weights.
+// Use the GitHub repository through jsDelivr.
+const MODEL_URL =
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights";
 
 const TARGET_FRAMES = 40;
 
-const POSES = ["front", "left", "right", "up", "down"];
+const POSES = [
+  "front",
+  "left",
+  "right",
+  "up",
+  "down"
+];
 
 const FRAMES_PER_POSE = Math.ceil(
   TARGET_FRAMES / POSES.length
 );
 
-// Liveness thresholds
 const EAR_BLINK_THRESHOLD = 0.21;
 const YAW_TURN_THRESHOLD = 0.12;
 
 
-// ============================================================================
-// DOM REFERENCES
-// ============================================================================
+/* ========================================================================== 
+   DOM REFERENCES
+   ========================================================================== */
 
 const video = document.getElementById("video");
 const overlay = document.getElementById("overlay");
-
 const camPlaceholder = document.getElementById("camPlaceholder");
 
-const faceStatusBadge = document.getElementById("faceStatusBadge");
-const livenessBadge = document.getElementById("livenessBadge");
-const livenessLine = document.getElementById("livenessLine");
+const faceStatusBadge =
+  document.getElementById("faceStatusBadge");
 
-const captureBtn = document.getElementById("captureBtn");
-const resetBtn = document.getElementById("resetBtn");
+const livenessBadge =
+  document.getElementById("livenessBadge");
 
-const progressFill = document.getElementById("progressFill");
-const progressLabel = document.getElementById("progressLabel");
-const progressCount = document.getElementById("progressCount");
+const livenessLine =
+  document.getElementById("livenessLine");
 
-const poseChips = Array.from(
-  document.querySelectorAll(".pose-chip")
-);
+const captureBtn =
+  document.getElementById("captureBtn");
 
-const toastEl = document.getElementById("toast");
+const resetBtn =
+  document.getElementById("resetBtn");
+
+const progressFill =
+  document.getElementById("progressFill");
+
+const progressLabel =
+  document.getElementById("progressLabel");
+
+const progressCount =
+  document.getElementById("progressCount");
+
+const poseChips =
+  Array.from(document.querySelectorAll(".pose-chip"));
+
+const toastEl =
+  document.getElementById("toast");
 
 
-// ============================================================================
-// FORM REFERENCES
-// ============================================================================
+/* ========================================================================== 
+   FORM REFERENCES
+   ========================================================================== */
 
 const formFields = {
   name: document.getElementById("inpName"),
   register_number: document.getElementById("inpRegNo"),
   department: document.getElementById("inpDept"),
   year: document.getElementById("inpYear"),
-  section: document.getElementById("inpSection"),
+  section: document.getElementById("inpSection")
 };
 
 
-// ============================================================================
-// STATE
-// ============================================================================
+/* ========================================================================== 
+   STATE
+   ========================================================================== */
 
 let modelsReady = false;
 
@@ -78,15 +88,14 @@ let detectLoopHandle = null;
 
 let currentFaceCount = 0;
 
-// Liveness state
 let blinkObserved = false;
+
 let headTurnObserved = false;
 
 let baselineNoseX = null;
 
 let earHistory = [];
 
-// Capture state
 let capturing = false;
 
 let captureQueue = [];
@@ -96,92 +105,130 @@ let poseIndex = 0;
 let framesForCurrentPose = 0;
 
 
-// ============================================================================
-// BASIC VALIDATION
-// ============================================================================
+/* ========================================================================== 
+   BASIC SAFETY CHECKS
+   ========================================================================== */
+
+function checkRequiredElements() {
+
+  const required = {
+    video,
+    overlay,
+    camPlaceholder,
+    faceStatusBadge,
+    livenessBadge,
+    livenessLine,
+    captureBtn,
+    resetBtn,
+    progressFill,
+    progressLabel,
+    progressCount,
+    toastEl
+  };
+
+  for (const [name, element] of Object.entries(required)) {
+
+    if (!element) {
+      console.error(
+        `Required HTML element not found: ${name}`
+      );
+      return false;
+    }
+  }
+
+  for (const [name, element] of Object.entries(formFields)) {
+
+    if (!element) {
+      console.error(
+        `Required form field not found: ${name}`
+      );
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+/* ========================================================================== 
+   TOAST
+   ========================================================================== */
 
 function showToast(message, kind = "") {
 
-  if (!toastEl) {
-    console.warn("Toast element not found:", message);
-    return;
-  }
+  if (!toastEl) return;
 
   toastEl.textContent = message;
 
   toastEl.className =
     "toast show" +
-    (kind ? " " + kind : "");
+    (kind ? ` ${kind}` : "");
 
   setTimeout(() => {
+
     toastEl.className = "toast";
+
   }, 3200);
 }
 
 
-// ============================================================================
-// STATUS BADGE
-// ============================================================================
+/* ========================================================================== 
+   STATUS BADGES
+   ========================================================================== */
 
 function setBadge(el, text, level) {
 
-  if (!el) {
-    console.warn("Badge element not found:", text);
-    return;
-  }
+  if (!el) return;
 
-  el.className = `status-badge ${level}`;
+  el.className =
+    `status-badge ${level}`;
 
   el.innerHTML =
     `<span class="dot"></span> ${text}`;
 }
 
 
-// ============================================================================
-// FORM FIELD VALIDATION
-// ============================================================================
+/* ========================================================================== 
+   FORM VALIDATION
+   ========================================================================== */
+
+function getFieldWrapper(key) {
+
+  const wrapperIds = {
+
+    name: "field-name",
+
+    register_number: "field-regno",
+
+    // IMPORTANT:
+    // HTML uses field-dept, NOT field-department.
+    department: "field-dept",
+
+    year: "field-year",
+
+    section: "field-section"
+  };
+
+  return document.getElementById(
+    wrapperIds[key]
+  );
+}
+
 
 function validateField(key, el) {
 
-  // Safety check
   if (!el) {
-    console.warn(
-      `Form field "${key}" was not found in HTML.`
-    );
-
     return false;
   }
 
-  const wrapperId =
-    `field-${key === "register_number"
-      ? "regno"
-      : key
-    }`;
-
   const wrapper =
-    document.getElementById(wrapperId);
+    getFieldWrapper(key);
 
   const value =
-    el.value.trim();
+    String(el.value || "").trim();
 
   const isValid =
     value.length > 0;
-
-
-  /*
-   * IMPORTANT FIX:
-   *
-   * Previously the code did:
-   *
-   * wrapper.classList.toggle(...)
-   *
-   * If wrapper was missing, wrapper was null and
-   * JavaScript crashed with:
-   *
-   * Cannot read properties of null (reading 'classList')
-   *
-   * Now we check whether wrapper exists first.
-   */
 
   if (wrapper) {
 
@@ -195,20 +242,11 @@ function validateField(key, el) {
       isValid
     );
 
-  } else {
-
-    console.warn(
-      `Validation wrapper "${wrapperId}" not found.`
-    );
   }
 
   return isValid;
 }
 
-
-// ============================================================================
-// FORM VALIDATION
-// ============================================================================
 
 function formIsValid() {
 
@@ -228,51 +266,35 @@ function formIsValid() {
 }
 
 
-// ============================================================================
-// GET FORM DATA
-// ============================================================================
-
 function getFormData() {
 
   return {
 
     name:
-      formFields.name
-        ? formFields.name.value.trim()
-        : "",
+      formFields.name.value.trim(),
 
     register_number:
-      formFields.register_number
-        ? formFields.register_number.value.trim()
-        : "",
+      formFields.register_number.value.trim(),
 
     department:
-      formFields.department
-        ? formFields.department.value.trim()
-        : "",
+      formFields.department.value.trim(),
 
     year:
-      formFields.year
-        ? formFields.year.value.trim()
-        : "",
+      formFields.year.value.trim(),
 
     section:
-      formFields.section
-        ? formFields.section.value.trim()
-        : ""
+      formFields.section.value.trim()
   };
 }
 
 
-// ============================================================================
-// FORM EVENT LISTENERS
-// ============================================================================
+/* ========================================================================== 
+   FORM EVENT LISTENERS
+   ========================================================================== */
 
 Object.values(formFields).forEach(el => {
 
-  if (!el) {
-    return;
-  }
+  if (!el) return;
 
   el.addEventListener(
     "input",
@@ -283,18 +305,13 @@ Object.values(formFields).forEach(el => {
     "change",
     updateCaptureButtonState
   );
+
 });
 
 
-// ============================================================================
-// CAPTURE BUTTON STATE
-// ============================================================================
-
 function updateCaptureButtonState() {
 
-  if (!captureBtn) {
-    return;
-  }
+  if (!captureBtn) return;
 
   const formOk =
     formIsValid();
@@ -302,20 +319,15 @@ function updateCaptureButtonState() {
   const faceOk =
     currentFaceCount === 1;
 
-  const enabled =
-    formOk &&
-    faceOk &&
-    modelsReady &&
-    !capturing;
-
   captureBtn.disabled =
-    !enabled;
+    !(formOk && faceOk && modelsReady)
+    || capturing;
 }
 
 
-// ============================================================================
-// CAMERA + FACE MODELS
-// ============================================================================
+/* ========================================================================== 
+   FACE-API MODEL LOADING
+   ========================================================================== */
 
 async function loadModels() {
 
@@ -367,9 +379,9 @@ async function loadModels() {
 }
 
 
-// ============================================================================
-// START CAMERA
-// ============================================================================
+/* ========================================================================== 
+   CAMERA
+   ========================================================================== */
 
 async function startCamera() {
 
@@ -402,6 +414,7 @@ async function startCamera() {
           height: {
             ideal: 480
           }
+
         },
 
         audio: false
@@ -419,26 +432,21 @@ async function startCamera() {
           await video.play();
 
 
-          if (camPlaceholder) {
-            camPlaceholder.style.display =
-              "none";
-          }
+          camPlaceholder.style.display =
+            "none";
 
           video.style.display =
             "block";
 
+          overlay.style.display =
+            "block";
 
-          if (overlay) {
 
-            overlay.style.display =
-              "block";
+          overlay.width =
+            video.videoWidth;
 
-            overlay.width =
-              video.videoWidth;
-
-            overlay.height =
-              video.videoHeight;
-          }
+          overlay.height =
+            video.videoHeight;
 
 
           setBadge(
@@ -446,6 +454,7 @@ async function startCamera() {
             "Camera ready",
             "ok"
           );
+
 
         } catch (playError) {
 
@@ -460,7 +469,9 @@ async function startCamera() {
             "bad"
           );
         }
+
       };
+
 
   } catch (err) {
 
@@ -470,32 +481,14 @@ async function startCamera() {
     );
 
 
-    if (camPlaceholder) {
-
-      camPlaceholder.style.display =
-        "flex";
-
-      camPlaceholder.innerHTML = `
-        <strong>
-          Camera access failed.
-        </strong>
-        <br><br>
-        <small>
-          Make sure your browser has permission
-          to use the camera.
-        </small>
-      `;
-    }
-
+    camPlaceholder.style.display =
+      "flex";
 
     video.style.display =
       "none";
 
-
-    if (overlay) {
-      overlay.style.display =
-        "none";
-    }
+    overlay.style.display =
+      "none";
 
 
     let message =
@@ -508,7 +501,7 @@ async function startCamera() {
     ) {
 
       message =
-        "Camera permission was denied. Please allow camera access in your browser settings and reload this page.";
+        "Camera permission was denied. Please allow camera access and reload the page.";
 
     } else if (
       err.name === "NotFoundError"
@@ -529,21 +522,17 @@ async function startCamera() {
     ) {
 
       message =
-        "Camera access requires HTTPS. Open this website using an HTTPS URL.";
+        "Camera access requires HTTPS.";
     }
 
 
-    if (camPlaceholder) {
-
-      camPlaceholder.innerHTML = `
-        <strong>${message}</strong>
-        <br><br>
-        <small>
-          Make sure your browser has permission
-          to use the camera.
-        </small>
-      `;
-    }
+    camPlaceholder.innerHTML = `
+      <strong>${message}</strong>
+      <br><br>
+      <small>
+        Make sure your browser has permission to use the camera.
+      </small>
+    `;
 
 
     setBadge(
@@ -555,9 +544,9 @@ async function startCamera() {
 }
 
 
-// ============================================================================
-// LIVENESS
-// ============================================================================
+/* ========================================================================== 
+   LIVENESS
+   ========================================================================== */
 
 function eyeAspectRatio(eye) {
 
@@ -590,10 +579,6 @@ function eyeAspectRatio(eye) {
 }
 
 
-// ============================================================================
-// UPDATE LIVENESS
-// ============================================================================
-
 function updateLiveness(
   landmarks,
   boxWidth
@@ -624,10 +609,7 @@ function updateLiveness(
   }
 
 
-  // --------------------------------------------------
-  // BLINK DETECTION
-  // --------------------------------------------------
-
+  // Blink detection
   if (
     !blinkObserved &&
     earHistory.length >= 3
@@ -652,10 +634,7 @@ function updateLiveness(
   }
 
 
-  // --------------------------------------------------
-  // HEAD TURN DETECTION
-  // --------------------------------------------------
-
+  // Head turn detection
   const noseX =
     nose[3].x;
 
@@ -670,8 +649,9 @@ function updateLiveness(
 
 
   const normalizedOffset =
-    (noseX - baselineNoseX) /
-    boxWidth;
+    (
+      noseX - baselineNoseX
+    ) / boxWidth;
 
 
   if (
@@ -682,10 +662,6 @@ function updateLiveness(
     headTurnObserved = true;
   }
 
-
-  // --------------------------------------------------
-  // LIVENESS STATUS
-  // --------------------------------------------------
 
   const parts = [];
 
@@ -704,10 +680,8 @@ function updateLiveness(
   );
 
 
-  if (livenessLine) {
-    livenessLine.textContent =
-      parts.join("   ");
-  }
+  livenessLine.textContent =
+    parts.join("   ");
 
 
   const liveOk =
@@ -732,10 +706,6 @@ function updateLiveness(
 }
 
 
-// ============================================================================
-// RESET LIVENESS
-// ============================================================================
-
 function resetLiveness() {
 
   blinkObserved = false;
@@ -754,22 +724,19 @@ function resetLiveness() {
   );
 
 
-  if (livenessLine) {
-    livenessLine.textContent =
-      "";
-  }
+  livenessLine.textContent =
+    "";
 }
 
 
-// ============================================================================
-// FACE DETECTION LOOP
-// ============================================================================
+/* ========================================================================== 
+   FACE DETECTION LOOP
+   ========================================================================== */
 
 async function detectionTick() {
 
   if (
     !modelsReady ||
-    !video ||
     video.paused ||
     video.ended
   ) {
@@ -783,24 +750,40 @@ async function detectionTick() {
   }
 
 
-  const displaySize = {
-
-    width:
-      overlay.clientWidth,
-
-    height:
-      overlay.clientHeight
-  };
-
-
-  overlay.width =
-    displaySize.width;
-
-  overlay.height =
-    displaySize.height;
-
-
   try {
+
+    const displaySize = {
+
+      width:
+        video.clientWidth ||
+        video.videoWidth,
+
+      height:
+        video.clientHeight ||
+        video.videoHeight
+    };
+
+
+    if (
+      displaySize.width === 0 ||
+      displaySize.height === 0
+    ) {
+
+      detectLoopHandle =
+        requestAnimationFrame(
+          detectionTick
+        );
+
+      return;
+    }
+
+
+    overlay.width =
+      displaySize.width;
+
+    overlay.height =
+      displaySize.height;
+
 
     const detections =
       await faceapi
@@ -834,9 +817,7 @@ async function detectionTick() {
       resized.length;
 
 
-    // ------------------------------------------------
-    // NO FACE
-    // ------------------------------------------------
+    /* No face */
 
     if (
       currentFaceCount === 0
@@ -852,9 +833,7 @@ async function detectionTick() {
     }
 
 
-    // ------------------------------------------------
-    // MULTIPLE FACES
-    // ------------------------------------------------
+    /* Multiple faces */
 
     else if (
       currentFaceCount > 1
@@ -867,24 +846,24 @@ async function detectionTick() {
       );
 
 
-      resized.forEach(det => {
+      resized.forEach(
+        det => {
 
-        drawBox(
-          ctx,
-          det.detection.box,
-          "#a67c1e"
-        );
+          drawBox(
+            ctx,
+            det.detection.box,
+            "#a67c1e"
+          );
 
-      });
+        }
+      );
 
 
       resetLiveness();
     }
 
 
-    // ------------------------------------------------
-    // ONE FACE
-    // ------------------------------------------------
+    /* Exactly one face */
 
     else {
 
@@ -921,6 +900,7 @@ async function detectionTick() {
       "Face detection error:",
       error
     );
+
   }
 
 
@@ -931,9 +911,9 @@ async function detectionTick() {
 }
 
 
-// ============================================================================
-// DRAW FACE BOX
-// ============================================================================
+/* ========================================================================== 
+   DRAW FACE BOX
+   ========================================================================== */
 
 function drawBox(
   ctx,
@@ -956,9 +936,9 @@ function drawBox(
 }
 
 
-// ============================================================================
-// POSE CHIPS
-// ============================================================================
+/* ========================================================================== 
+   POSE UI
+   ========================================================================== */
 
 function updatePoseChips() {
 
@@ -976,14 +956,15 @@ function updatePoseChips() {
         idx === poseIndex &&
         capturing
       );
+
     }
   );
 }
 
 
-// ============================================================================
-// PROGRESS
-// ============================================================================
+/* ========================================================================== 
+   PROGRESS
+   ========================================================================== */
 
 function updateProgress() {
 
@@ -999,35 +980,24 @@ function updateProgress() {
     );
 
 
-  if (progressFill) {
-
-    progressFill.style.width =
-      pct + "%";
-  }
+  progressFill.style.width =
+    `${pct}%`;
 
 
-  if (progressLabel) {
-
-    progressLabel.textContent =
-      `${pct}% captured`;
-  }
+  progressLabel.textContent =
+    `${pct}% captured`;
 
 
-  if (progressCount) {
-
-    progressCount.textContent =
-      `${captureQueue.length} / ${TARGET_FRAMES} frames`;
-  }
+  progressCount.textContent =
+    `${captureQueue.length} / ${TARGET_FRAMES} frames`;
 }
 
 
-// ============================================================================
-// POSE INSTRUCTION
-// ============================================================================
+/* ========================================================================== 
+   POSE INSTRUCTIONS
+   ========================================================================== */
 
-function poseInstruction(
-  pose
-) {
+function poseInstruction(pose) {
 
   const map = {
 
@@ -1055,16 +1025,14 @@ function poseInstruction(
 }
 
 
-// ============================================================================
-// CAPTURE FRAME
-// ============================================================================
+/* ========================================================================== 
+   CAPTURE IMAGE
+   ========================================================================== */
 
 async function captureFrameBlob() {
 
   const canvas =
-    document.createElement(
-      "canvas"
-    );
+    document.createElement("canvas");
 
 
   canvas.width =
@@ -1076,7 +1044,10 @@ async function captureFrameBlob() {
 
   const ctx =
     canvas.getContext(
-      "2d"
+      "2d",
+      {
+        willReadFrequently: true
+      }
     );
 
 
@@ -1103,16 +1074,15 @@ async function captureFrameBlob() {
 }
 
 
-// ============================================================================
-// CAPTURE SEQUENCE
-// ============================================================================
+/* ========================================================================== 
+   CAPTURE SEQUENCE
+   ========================================================================== */
 
 async function runCaptureSequence() {
 
   capturing = true;
 
-  captureBtn.disabled =
-    true;
+  captureBtn.disabled = true;
 
   captureBtn.textContent =
     "Capturing…";
@@ -1128,85 +1098,107 @@ async function runCaptureSequence() {
   updateProgress();
 
 
-  for (
-    poseIndex = 0;
-    poseIndex < POSES.length;
-    poseIndex++
-  ) {
+  try {
 
-    const pose =
-      POSES[poseIndex];
+    for (
+      poseIndex = 0;
+      poseIndex < POSES.length;
+      poseIndex++
+    ) {
+
+      const pose =
+        POSES[poseIndex];
+
+
+      updatePoseChips();
+
+
+      showToast(
+        poseInstruction(pose)
+      );
+
+
+      framesForCurrentPose = 0;
+
+
+      await sleep(900);
+
+
+      while (
+        framesForCurrentPose <
+        FRAMES_PER_POSE &&
+        captureQueue.length <
+        TARGET_FRAMES
+      ) {
+
+        if (
+          currentFaceCount !== 1
+        ) {
+
+          await sleep(300);
+
+          continue;
+        }
+
+
+        const blob =
+          await captureFrameBlob();
+
+
+        if (!blob) {
+
+          throw new Error(
+            "Could not capture camera frame."
+          );
+        }
+
+
+        captureQueue.push({
+
+          blob,
+
+          pose
+        });
+
+
+        framesForCurrentPose++;
+
+
+        updateProgress();
+
+
+        await sleep(180);
+      }
+    }
+
+
+    poseIndex =
+      POSES.length;
 
 
     updatePoseChips();
 
 
-    showToast(
-      poseInstruction(pose)
+    await submitEnrollment();
+
+  } catch (error) {
+
+    console.error(
+      "Capture error:",
+      error
     );
 
 
-    framesForCurrentPose =
-      0;
+    showToast(
+      "Capture failed. Please try again.",
+      "error"
+    );
 
 
-    await sleep(900);
-
-
-    while (
-      framesForCurrentPose <
-      FRAMES_PER_POSE &&
-      captureQueue.length <
-      TARGET_FRAMES
-    ) {
-
-
-      if (
-        currentFaceCount !== 1
-      ) {
-
-        await sleep(300);
-
-        continue;
-      }
-
-
-      const blob =
-        await captureFrameBlob();
-
-
-      captureQueue.push({
-
-        blob,
-        pose
-      });
-
-
-      framesForCurrentPose++;
-
-
-      updateProgress();
-
-
-      await sleep(180);
-    }
+    resetCaptureOnly();
   }
-
-
-  poseIndex =
-    POSES.length;
-
-
-  updatePoseChips();
-
-
-  await submitEnrollment();
 }
 
-
-// ============================================================================
-// SLEEP
-// ============================================================================
 
 function sleep(ms) {
 
@@ -1220,79 +1212,9 @@ function sleep(ms) {
 }
 
 
-// ============================================================================
-// BACKEND — DUPLICATE CHECK
-// ============================================================================
-
-async function checkDuplicateEarly() {
-
-  try {
-
-    const blob =
-      await captureFrameBlob();
-
-
-    const b64 =
-      await blobToBase64(
-        blob
-      );
-
-
-    const res =
-      await fetch(
-        `${API_BASE}/api/enroll/check-duplicate`,
-        {
-
-          method:
-            "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body:
-            JSON.stringify({
-              image: b64
-            })
-        }
-      );
-
-
-    const data =
-      await res.json();
-
-
-    if (data.duplicate) {
-
-      showToast(
-
-        `This face looks already enrolled as ${data.matched_name} (${data.matched_register_number}).`,
-
-        "error"
-      );
-
-
-      return true;
-    }
-
-
-  } catch (err) {
-
-    console.warn(
-      "Duplicate pre-check failed:",
-      err
-    );
-  }
-
-
-  return false;
-}
-
-
-// ============================================================================
-// BLOB → BASE64
-// ============================================================================
+/* ========================================================================== 
+   BASE64
+   ========================================================================== */
 
 function blobToBase64(blob) {
 
@@ -1304,12 +1226,9 @@ function blobToBase64(blob) {
 
 
       reader.onloadend =
-        () => {
-
-          resolve(
-            reader.result
-          );
-        };
+        () => resolve(
+          reader.result
+        );
 
 
       reader.onerror =
@@ -1324,9 +1243,186 @@ function blobToBase64(blob) {
 }
 
 
-// ============================================================================
-// SUBMIT ENROLLMENT
-// ============================================================================
+/* ========================================================================== 
+   BACKEND HEALTH CHECK
+   ========================================================================== */
+
+async function checkBackendHealth() {
+
+  try {
+
+    const response =
+      await fetch(
+        `${API_BASE}/api/health`,
+        {
+          method: "GET"
+        }
+      );
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        `Backend returned ${response.status}`
+      );
+    }
+
+
+    const data =
+      await response.json();
+
+
+    console.log(
+      "Backend health:",
+      data
+    );
+
+
+    return true;
+
+  } catch (error) {
+
+    console.error(
+      "Backend health check failed:",
+      error
+    );
+
+
+    return false;
+  }
+}
+
+
+/* ========================================================================== 
+   DUPLICATE CHECK
+   ========================================================================== */
+
+async function checkDuplicateEarly() {
+
+  try {
+
+    const backendOk =
+      await checkBackendHealth();
+
+
+    if (!backendOk) {
+
+      showToast(
+        "Backend server is unavailable. Please check Render.",
+        "error"
+      );
+
+      return true;
+    }
+
+
+    const blob =
+      await captureFrameBlob();
+
+
+    if (!blob) {
+
+      showToast(
+        "Could not capture camera image.",
+        "error"
+      );
+
+      return true;
+    }
+
+
+    const b64 =
+      await blobToBase64(blob);
+
+
+    const response =
+      await fetch(
+        `${API_BASE}/api/enroll/check-duplicate`,
+        {
+
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+              image: b64
+            })
+        }
+      );
+
+
+    if (!response.ok) {
+
+      const text =
+        await response.text();
+
+
+      console.error(
+        "Duplicate check failed:",
+        response.status,
+        text
+      );
+
+
+      showToast(
+        `Backend duplicate check failed (${response.status}).`,
+        "error"
+      );
+
+
+      return true;
+    }
+
+
+    const data =
+      await response.json();
+
+
+    if (data.duplicate) {
+
+      showToast(
+
+        `This face looks already enrolled as ` +
+        `${data.matched_name} ` +
+        `(${data.matched_register_number}).`,
+
+        "error"
+      );
+
+
+      return true;
+    }
+
+
+    return false;
+
+
+  } catch (error) {
+
+    console.error(
+      "Duplicate pre-check failed:",
+      error
+    );
+
+
+    showToast(
+      "Could not contact the backend server.",
+      "error"
+    );
+
+
+    return true;
+  }
+}
+
+
+/* ========================================================================== 
+   SUBMIT ENROLLMENT
+   ========================================================================== */
 
 async function submitEnrollment() {
 
@@ -1347,17 +1443,18 @@ async function submitEnrollment() {
         key,
         value
       );
+
     }
   );
 
 
   captureQueue.forEach(
-    item => {
+    (item, index) => {
 
       formData.append(
         "images",
         item.blob,
-        `${item.pose}.jpg`
+        `${item.pose}-${index + 1}.jpg`
       );
 
 
@@ -1365,34 +1462,58 @@ async function submitEnrollment() {
         "poses",
         item.pose
       );
+
     }
   );
 
 
   try {
 
-    const res =
+    showToast(
+      "Uploading face data…"
+    );
+
+
+    const response =
       await fetch(
         `${API_BASE}/api/enroll`,
         {
 
-          method:
-            "POST",
+          method: "POST",
 
-          body:
-            formData
+          body: formData
         }
       );
 
 
+    if (!response.ok) {
+
+      const text =
+        await response.text();
+
+
+      console.error(
+        "Enrollment backend error:",
+        response.status,
+        text
+      );
+
+
+      throw new Error(
+        `Server returned ${response.status}`
+      );
+    }
+
+
     const data =
-      await res.json();
+      await response.json();
 
 
     if (data.success) {
 
       showToast(
-        data.message,
+        data.message ||
+        "Enrollment successful!",
         "success"
       );
 
@@ -1412,16 +1533,16 @@ async function submitEnrollment() {
     }
 
 
-  } catch (err) {
+  } catch (error) {
 
     console.error(
-      "Enrollment request failed:",
-      err
+      "Enrollment error:",
+      error
     );
 
 
     showToast(
-      "Could not reach the enrollment server. Please check the backend.",
+      "Could not reach the enrollment server.",
       "error"
     );
 
@@ -1431,9 +1552,9 @@ async function submitEnrollment() {
 }
 
 
-// ============================================================================
-// RESET CAPTURE
-// ============================================================================
+/* ========================================================================== 
+   RESET
+   ========================================================================== */
 
 function resetCaptureOnly() {
 
@@ -1446,11 +1567,8 @@ function resetCaptureOnly() {
   framesForCurrentPose = 0;
 
 
-  if (captureBtn) {
-
-    captureBtn.textContent =
-      "Capture & Enroll";
-  }
+  captureBtn.textContent =
+    "Capture & Enroll";
 
 
   updateProgress();
@@ -1460,10 +1578,6 @@ function resetCaptureOnly() {
   updateCaptureButtonState();
 }
 
-
-// ============================================================================
-// RESET EVERYTHING
-// ============================================================================
 
 function resetAll() {
 
@@ -1478,6 +1592,7 @@ function resetAll() {
       if (el) {
         el.value = "";
       }
+
     }
   );
 
@@ -1500,50 +1615,93 @@ function resetAll() {
 }
 
 
-// ============================================================================
-// BUTTON EVENTS
-// ============================================================================
+/* ========================================================================== 
+   BUTTON EVENTS
+   ========================================================================== */
 
-if (captureBtn) {
+captureBtn.addEventListener(
+  "click",
+  async () => {
 
-  captureBtn.addEventListener(
-    "click",
-    async () => {
-
-      if (capturing) {
-        return;
-      }
-
-
-      const duplicate =
-        await checkDuplicateEarly();
-
-
-      if (duplicate) {
-        return;
-      }
-
-
-      runCaptureSequence();
+    if (capturing) {
+      return;
     }
-  );
-}
 
 
-if (resetBtn) {
-
-  resetBtn.addEventListener(
-    "click",
-    resetAll
-  );
-}
+    const formOk =
+      formIsValid();
 
 
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
+    if (!formOk) {
+
+      showToast(
+        "Please complete all student details.",
+        "error"
+      );
+
+      return;
+    }
+
+
+    if (
+      currentFaceCount !== 1
+    ) {
+
+      showToast(
+        "Exactly one face must be visible.",
+        "error"
+      );
+
+      return;
+    }
+
+
+    if (!modelsReady) {
+
+      showToast(
+        "Face models are not ready yet.",
+        "error"
+      );
+
+      return;
+    }
+
+
+    const duplicate =
+      await checkDuplicateEarly();
+
+
+    if (duplicate) {
+      return;
+    }
+
+
+    await runCaptureSequence();
+  }
+);
+
+
+resetBtn.addEventListener(
+  "click",
+  resetAll
+);
+
+
+/* ========================================================================== 
+   INITIALIZATION
+   ========================================================================== */
 
 (async function init() {
+
+  if (!checkRequiredElements()) {
+
+    console.error(
+      "Page initialization stopped because required HTML elements are missing."
+    );
+
+    return;
+  }
+
 
   setBadge(
     faceStatusBadge,
@@ -1556,11 +1714,11 @@ if (resetBtn) {
 
     await loadModels();
 
-  } catch (err) {
+  } catch (error) {
 
     console.error(
       "Failed to load face-api models:",
-      err
+      error
     );
 
 
@@ -1568,6 +1726,12 @@ if (resetBtn) {
       faceStatusBadge,
       "Model load failed — check connection",
       "bad"
+    );
+
+
+    showToast(
+      "Face models could not be loaded. Check the browser console.",
+      "error"
     );
 
 
@@ -1598,3 +1762,4 @@ if (resetBtn) {
     );
 
 })();
+
