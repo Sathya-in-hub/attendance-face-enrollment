@@ -6,7 +6,7 @@
    of truth for storage.
    ========================================================================== */
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://attendance-face-enrollment.onrender.com";
 const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights";
 
 const TARGET_FRAMES = 40;           // total frames to capture across all poses
