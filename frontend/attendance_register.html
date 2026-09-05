@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance Register</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+<style>
+  :root{
+    --paper:#faf6ec;
+    --paper-line:#ded4bd;
+    --ink:#1e2a44;
+    --ink-soft:#4c5773;
+    --present:#2f5233;
+    --present-bg:#e6ede1;
+    --absent:#a63a3a;
+    --absent-bg:#f3e3e0;
+    --late:#a67c1e;
+    --late-bg:#f4ecd8;
+    --gold:#c9a227;
+    --white:#fffdf8;
+    --shadow: 0 1px 2px rgba(30,42,68,0.08), 0 4px 14px rgba(30,42,68,0.06);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    background-image:
+      linear-gradient(var(--paper-line) 1px, transparent 1px);
+    background-size: 100% 2.15em;
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    padding:0 0 60px 0;
+  }
+  header{
+    padding:36px 32px 20px 32px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:16px;
+    border-bottom:2px solid var(--ink);
+    margin-bottom:24px;
+    background:var(--paper);
+  }
+  .brand{display:flex; align-items:baseline; gap:14px;}
+  .brand .stamp{
+    width:44px;height:44px;border-radius:50%;
+    border:2.5px solid var(--gold);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px;
+    color:var(--gold); transform:rotate(-8deg); flex-shrink:0;
+  }
+  h1{
+    font-family:'Spectral',serif;
+    font-weight:700;
+    font-size:30px;
+    margin:0;
+    letter-spacing:0.2px;
+  }
+  header .sub{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-top:2px;
+  }
+  nav{display:flex; gap:6px;}
+  nav button{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    letter-spacing:0.03em;
+    background:transparent;
+    border:1.5px solid var(--ink);
+    color:var(--ink);
+    padding:9px 16px;
+    cursor:pointer;
+    border-radius:3px;
+    transition:all .15s ease;
+  }
+  nav button.active{ background:var(--ink); color:var(--white); }
+  nav button:hover:not(.active){ background:rgba(30,42,68,0.06); }
+
+  main{ padding:0 32px; max-width:1100px; margin:0 auto; }
+  .panel{
+    background:var(--white);
+    border:1px solid var(--paper-line);
+    border-radius:6px;
+    box-shadow:var(--shadow);
+    padding:24px;
+    margin-bottom:24px;
+  }
+  .panel h2{
+    font-family:'Spectral',serif;
+    font-size:19px;
+    margin:0 0 4px 0;
+  }
+  .panel .hint{ color:var(--ink-soft); font-size:13px; margin:0 0 18px 0; }
+
+  .row{ display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; margin-bottom:18px;}
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field label{ font-size:11.5px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.05em; }
+  input,select{
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    padding:9px 10px;
+    border:1.5px solid var(--paper-line);
+    border-radius:4px;
+    background:var(--white);
+    color:var(--ink);
+    min-width:150px;
+  }
+  input:focus,select:focus{ outline:none; border-color:var(--ink); }
+  button.primary{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    background:var(--ink);
+    color:var(--white);
+    border:none;
+    padding:10px 18px;
+    border-radius:4px;
+    cursor:pointer;
+  }
+  button.primary:hover{ background:#12192c; }
+  button.ghost{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    background:transparent;
+    color:var(--ink);
+    border:1.5px solid var(--paper-line);
+    padding:9px 14px;
+    border-radius:4px;
+    cursor:pointer;
+  }
+  button.ghost:hover{ border-color:var(--ink); }
+  button.danger{ color:var(--absent); border-color:var(--absent-bg); background:var(--absent-bg);
+    font-family:'Inter',sans-serif; font-weight:600; font-size:12px; padding:6px 10px; border-radius:4px; cursor:pointer; border:none;}
+
+  table{ width:100%; border-collapse:collapse; font-size:14px; }
+  th, td{ padding:10px 12px; vertical-align:middle; }
+  th{
+    text-align:left; font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase;
+    letter-spacing:0.05em; color:var(--ink-soft); border-bottom:2px solid var(--ink);
+  }
+  td{ border-bottom:1px solid var(--paper-line); }
+  tr:last-child td{border-bottom:none;}
+  
+  .text-center{ text-align:center; }
+  .roll-badge{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:28px;height:28px;border-radius:50%;
+    border:1.5px solid var(--ink); font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600;
+  }
+  .status-toggle{ display:flex; gap:6px; justify-content:center; }
+  .status-btn{
+    font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:12px;
+    width:34px; height:30px; border-radius:4px; cursor:pointer; border:1.5px solid var(--paper-line);
+    background:var(--white); color:var(--ink-soft);
+  }
+  .status-btn.p.on{ background:var(--present-bg); color:var(--present); border-color:var(--present); }
+  .status-btn.a.on{ background:var(--absent-bg); color:var(--absent); border-color:var(--absent); }
+  .status-btn.l.on{ background:var(--late-bg); color:var(--late); border-color:var(--late); }
+
+  .pct-val{ font-family:'IBM Plex Mono',monospace; font-size:14px; font-weight:600; color:var(--ink); }
+  .col-pct{ width:120px; min-width:100px; }
+
+  .empty{ text-align:center; padding:40px 20px; color:var(--ink-soft); font-size:14px; }
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:var(--white); padding:10px 20px; border-radius:5px;
+    font-size:13px; font-family:'Inter',sans-serif; box-shadow:var(--shadow); opacity:0; transition:opacity .25s;
+    pointer-events:none; z-index:50;
+  }
+  .toast.show{ opacity:1; }
+  .inline-add{ display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .subject-chip{
+    display:inline-flex; align-items:center; gap:8px;
+    border:1.5px solid var(--paper-line); border-radius:20px; padding:6px 12px 6px 14px;
+    font-family:'IBM Plex Mono',monospace; font-size:12.5px; margin:4px 6px 4px 0;
+  }
+  .subject-chip button{ background:none; border:none; color:var(--absent); cursor:pointer; font-size:13px; padding:0; }
+  select.subject-select{ min-width:200px; }
+  .table-responsive{ overflow-x:auto; margin-bottom:16px; }
+  .footnote{ font-size:12px; color:var(--ink-soft); margin-top:10px; }
+
+  /* ---------- COMBINED TAKE-ATTENDANCE LAYOUT ---------- */
+  .take-grid{ display:grid; grid-template-columns: minmax(260px, 420px) 1fr; gap:28px; align-items:start; }
+  .take-grid .col-divider{ border-left:1.5px solid var(--paper-line); padding-left:28px; }
+  @media (max-width: 860px){
+    .take-grid{ grid-template-columns: 1fr; }
+    .take-grid .col-divider{ border-left:none; padding-left:0; border-top:1.5px solid var(--paper-line); padding-top:24px; margin-top:4px; }
+  }
+  .subsection-title{ font-family:'Spectral',serif; font-size:15.5px; font-weight:700; margin:0 0 4px 0; color:var(--ink); }
+
+  /* ---------- FACE RECOGNITION ---------- */
+  .face-panel{ margin-top:24px; }
+  .cam-controls{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+  .checkbox-row{ display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink-soft); font-family:'Inter',sans-serif; }
+  .threshold-row{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; }
+  .cam-stage{
+    position:relative; width:100%; max-width:560px; background:#0d1220; border-radius:6px; overflow:hidden;
+    border:1.5px solid var(--ink); aspect-ratio:4/3;
+  }
+  .cam-stage video{ width:100%; height:100%; object-fit:cover; display:block; transform:scaleX(-1); }
+  .cam-stage canvas{ position:absolute; top:0; left:0; width:100%; height:100%; transform:scaleX(-1); }
+  .cam-placeholder{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:#cbd3e6; font-family:'IBM Plex Mono',monospace; font-size:12.5px; text-align:center; padding:24px; line-height:1.6;
+  }
+  .cam-status-line{ display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; margin:14px 0 4px 0; color:var(--ink-soft); }
+  .status-dot{ width:9px; height:9px; border-radius:50%; background:var(--paper-line); flex-shrink:0; }
+  .status-dot.detecting{ background:var(--gold); }
+  .status-dot.recognized{ background:var(--present); }
+  .status-dot.unknown{ background:var(--absent); }
+  .detected-card{
+    margin-top:14px; border:1.5px solid var(--paper-line); border-radius:6px; padding:14px 18px; background:var(--paper);
+    display:none; max-width:560px;
+  }
+  .detected-card.show{ display:block; }
+  .detected-card .dname{ font-family:'Spectral',serif; font-weight:700; font-size:18px; margin:0 0 6px 0; }
+  .detected-card .drow{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--ink-soft); margin:2px 0; }
+  .detected-card .dstat{ margin-top:8px; font-weight:600; font-size:13.5px; }
+  .detected-card .dstat.present{ color:var(--present); }
+  .detected-card .dstat.warn{ color:var(--late); }
+  .detected-card .dstat.unknown{ color:var(--absent); }
+  .face-col{ width:170px; }
+  .face-badge{ display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:3px 8px; border-radius:10px; border:1.5px solid var(--paper-line); color:var(--ink-soft); }
+  .face-badge.yes{ color:var(--present); border-color:var(--present); background:var(--present-bg); }
+  .enroll-btn{
+    display:block; margin:6px auto 0 auto; font-family:'Inter',sans-serif; font-weight:600; font-size:11px;
+    background:transparent; color:var(--ink); border:1.5px solid var(--paper-line); padding:5px 10px; border-radius:4px; cursor:pointer;
+  }
+  .enroll-btn:hover{ border-color:var(--ink); }
+  .face-msg{ font-size:12.5px; margin-top:10px; color:var(--ink-soft); font-family:'Inter',sans-serif; }
+  .face-msg.err{ color:var(--absent); }
+  .face-msg.ok{ color:var(--present); }
+
+  /* ---------- ENROLLMENT MODAL ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(30,42,68,0.55); display:none; align-items:center; justify-content:center;
+    z-index:100; padding:20px;
+  }
+  .modal-overlay.show{ display:flex; }
+  .modal-box{
+    background:var(--white); border-radius:8px; max-width:540px; width:100%; padding:26px; box-shadow:var(--shadow);
+    max-height:92vh; overflow-y:auto;
+  }
+  .modal-box h3{ font-family:'Spectral',serif; font-size:19px; margin:0 0 6px 0; }
+  .enroll-prompt{
+    font-family:'IBM Plex Mono',monospace; font-size:13.5px; color:var(--ink); font-weight:600; margin:12px 0 6px 0; text-align:center;
+    background:var(--late-bg); border:1px solid var(--late); border-radius:4px; padding:8px;
+  }
+  .enroll-progress{ display:flex; gap:7px; justify-content:center; margin:10px 0 2px 0; }
+  .enroll-dot{ width:11px; height:11px; border-radius:50%; border:1.5px solid var(--paper-line); }
+  .enroll-dot.done{ background:var(--present); border-color:var(--present); }
+  .enroll-dot.active{ border-color:var(--gold); border-width:2.5px; }
+  .modal-actions{ display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="stamp">A/R</div>
+    <div>
+      <h1>Attendance Register</h1>
+      <div class="sub">daily attendance · subject-wise percentage</div>
+    </div>
+  </div>
+  <nav>
+    <button class="tab-btn active" data-tab="take">Take Attendance</button>
+    <button class="tab-btn" data-tab="roster">Roster & Subjects</button>
+    <button class="tab-btn" data-tab="reports">Reports & Export</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- TAKE ATTENDANCE -->
+  <section id="tab-take">
+    <div class="panel">
+      <h2>Mark today's attendance</h2>
+      <p class="hint">Pick a date and subject, then either scan faces with the camera or tap P / A manually — both write to the same register.</p>
+      <div class="row">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="attDate">
+        </div>
+        <div class="field">
+          <label>Subject</label>
+          <select id="attSubject" class="subject-select"></select>
+        </div>
+        <button class="primary" id="saveAttendanceBtn">Save attendance</button>
+      </div>
+
+      <div class="take-grid">
+        <div class="col-camera">
+          <p class="subsection-title">Face Recognition</p>
+          <div class="cam-controls">
+            <button class="primary" id="startCamBtn">Start Camera</button>
+            <button class="ghost" id="stopCamBtn" disabled>Stop Camera</button>
+          </div>
+          <div class="cam-controls">
+            <label class="checkbox-row"><input type="checkbox" id="autoSaveToggle" checked> Auto-save recognized attendance</label>
+          </div>
+          <div class="cam-controls">
+            <label class="threshold-row">Match strictness
+              <input type="range" id="matchThreshold" min="0.35" max="0.65" step="0.01" value="0.50">
+              <span id="thresholdVal">0.50</span>
+            </label>
+          </div>
+
+          <div class="cam-stage" id="camStage">
+            <video id="camVideo" autoplay muted playsinline></video>
+            <canvas id="camCanvas"></canvas>
+            <div class="cam-placeholder" id="camPlaceholder">Camera is off.<br>Click "Start Camera" to begin face recognition attendance.</div>
+          </div>
+
+          <div class="cam-status-line">
+            <span class="status-dot" id="camStatusDot"></span>
+            <span id="camStatusText">Camera idle.</span>
+          </div>
+
+          <div class="detected-card" id="detectedCard">
+            <p class="dname" id="detName">—</p>
+            <p class="drow">Register No: <strong id="detRegNo">—</strong></p>
+            <p class="drow">Roll No: <strong id="detRoll">—</strong></p>
+            <p class="drow">Match confidence: <strong id="detConfidence">—</strong></p>
+            <p class="dstat" id="detStatus">—</p>
+          </div>
+
+          <p class="face-msg" id="faceModelMsg">Loading face recognition models…</p>
+        </div>
+
+        <div class="col-manual col-divider">
+          <p class="subsection-title">Manual Attendance</p>
+          <div class="table-responsive">
+            <table id="takeTable">
+              <thead><tr><th style="width:50px" class="text-center">Roll</th><th style="width:140px" class="text-center">Reg. No</th><th>Student</th><th style="width:160px" class="text-center">Status</th></tr></thead>
+              <tbody id="takeTableBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="takeEmpty" style="display:none;">Add students in the Roster tab first.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROSTER -->
+  <section id="tab-roster" style="display:none;">
+    <div class="panel">
+      <h2>Students</h2>
+      <p class="hint">Roll numbers are assigned automatically. You can specify a custom Register Number for each student (digits only).</p>
+      <div class="row">
+        <div class="field">
+          <label>Register Number</label>
+          <input type="text" id="newStudentRegNo" placeholder="e.g. 2025101001" inputmode="numeric" pattern="[0-9]*">
+        </div>
+        <div class="field">
+          <label>Student name</label>
+          <input type="text" id="newStudentName" placeholder="e.g. Ananya Rao">
+        </div>
+        <button class="primary" id="addStudentBtn">Add student</button>
+      </div>
+      <div class="table-responsive">
+        <table>
+          <thead><tr><th style="width:50px" class="text-center">Roll</th><th style="width:140px" class="text-center">Reg. No</th><th>Name</th><th class="text-center face-col">Face Enrollment</th><th style="width:80px" class="text-center">Action</th></tr></thead>
+          <tbody id="studentTableBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="studentEmpty" style="display:none;">No students yet — add your first one above.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Subjects</h2>
+      <p class="hint">Define the subjects you take attendance for (e.g. Mathematics, Science).</p>
+      <div class="row">
+        <div class="field">
+          <label>Subject name</label>
+          <input type="text" id="newSubjectName" placeholder="e.g. Mathematics">
+        </div>
+        <button class="primary" id="addSubjectBtn">Add subject</button>
+      </div>
+      <div id="subjectChips"></div>
+    </div>
+  </section>
+
+  <!-- REPORTS -->
+  <section id="tab-reports" style="display:none;">
+    <div class="panel">
+      <h2>Attendance percentage by subject</h2>
+      <p class="hint">Percentage = sessions present ÷ sessions recorded, per subject, side by side for every student.</p>
+      <div class="table-responsive">
+        <table id="reportTable">
+          <thead><tr id="reportHeadRow"></tr></thead>
+          <tbody id="reportTableBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="reportEmpty" style="display:none;">No attendance recorded yet.</div>
+      <div class="row" style="margin-top:20px; margin-bottom:0;">
+        <button class="primary" id="exportBtn">Download Excel workbook</button>
+        <span class="footnote" style="align-self:center;">Includes a raw log sheet + this side-by-side percentage sheet.</span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="modal-overlay" id="enrollModal">
+  <div class="modal-box">
+    <h3>Enroll Face — <span id="enrollStudentName"></span></h3>
+    <p class="hint" style="margin-bottom:10px;">Look at the camera and follow each pose so recognition works reliably from different angles.</p>
+    <div class="cam-stage" id="enrollStage">
+      <video id="enrollVideo" autoplay muted playsinline></video>
+      <canvas id="enrollCanvas"></canvas>
+      <div class="cam-placeholder" id="enrollPlaceholder">Starting camera…</div>
+    </div>
+    <p class="enroll-prompt" id="enrollPrompt">—</p>
+    <div class="enroll-progress" id="enrollProgress"></div>
+    <p class="face-msg" id="enrollMsg"></p>
+    <div class="modal-actions">
+      <button class="primary" id="captureSampleBtn" disabled>Capture This Pose</button>
+      <button class="ghost" id="cancelEnrollBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API_BASE = 'http://127.0.0.1:5000';
+const STORAGE_KEY_ROSTER = 'roster-config';
+const STORAGE_KEY_RECORDS = 'attendance-records';
+
+// window.storage only exists when this page is rendered inside a Claude artifact.
+// When this file is self-hosted (required for the camera + face models to work
+// over your own localhost/HTTPS server), it won't exist — so fall back to
+// localStorage transparently. Same get/set/shape either way.
+const hasClaudeStorage = (typeof window.storage !== 'undefined' && window.storage && typeof window.storage.set === 'function');
+const localStore = {
+  async get(key){
+    const v = window.localStorage.getItem(key);
+    if(v === null) throw new Error('not found');
+    return { key, value: v };
+  },
+  async set(key, value){
+    window.localStorage.setItem(key, value);
+    return { key, value };
+  }
+};
+const appStorage = hasClaudeStorage ? window.storage : localStore;
+
+let state = {
+  students: [],   // [{id, name, regNo, roll}]
+  subjects: [],   // ["Subject 1", ...]
+  records: {}     // { date: { subject: { studentId: 'P'|'A'|'L' } } }
+};
+
+// The first version of this page stored student IDs locally. After the
+// roster was connected to Flask, backend student IDs changed (for example,
+// "sabc123" -> "1"). Keep the old roster temporarily so existing attendance
+// and face-enrollment data can be migrated to the backend IDs.
+let legacyRosterStudents = [];
+
+function uid(){ return 's' + Math.random().toString(36).slice(2,9); }
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+async function loadState(){
+  // Read the old local roster first. It is needed to translate old local
+  // student IDs to the new Flask/database student IDs.
+  try{
+    const roster = await appStorage.get(STORAGE_KEY_ROSTER, false);
+    if(roster && roster.value){
+      const parsed = JSON.parse(roster.value);
+      legacyRosterStudents = Array.isArray(parsed.students) ? parsed.students : [];
+      if(Array.isArray(parsed.subjects)) state.subjects = parsed.subjects;
+      else if(Array.isArray(parsed.periods)) state.subjects = parsed.periods;
+    }
+  }catch(e){ /* no local roster yet */ }
+
+  // Load students from Flask. Keep localStorage as a temporary fallback for
+  // subjects/attendance.
+  try{
+    const response = await fetch(`${API_BASE}/api/students`);
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if(data.success && Array.isArray(data.students)){
+      state.students = data.students.map(s => ({
+        id: String(s.id),
+        name: s.name,
+        regNo: String(s.register_number || s.regNo || ''),
+        roll: 0,
+        department: s.department || '',
+        year: s.year || '',
+        section: s.section || '',
+        faceCount: Number(s.face_count || 0)
+      }));
+    }
+  }catch(e){
+    console.warn('Backend student load failed; using local roster fallback.', e);
+    if(legacyRosterStudents.length){
+      state.students = legacyRosterStudents;
+    }
+  }
+
+  // Keep local subjects if the backend does not manage subjects yet.
+  try{
+    const roster = await appStorage.get(STORAGE_KEY_ROSTER, false);
+    if(roster && roster.value){
+      const parsed = JSON.parse(roster.value);
+      if(state.subjects.length === 0){
+        state.subjects = parsed.subjects || parsed.periods || [];
+      }
+    }
+  }catch(e){ /* no local subjects yet */ }
+
+  try{
+    const rec = await appStorage.get(STORAGE_KEY_RECORDS, false);
+    if(rec && rec.value) state.records = JSON.parse(rec.value);
+  }catch(e){ /* no attendance data yet */ }
+
+  // IMPORTANT: migrate attendance saved with old local student IDs to the
+  // corresponding backend student IDs using Register Number (then name).
+  const idMap = buildStudentIdMap(legacyRosterStudents, state.students);
+  if(Object.keys(idMap).length){
+    let changed = false;
+    Object.keys(state.records).forEach(date=>{
+      const dayRec = state.records[date];
+      Object.keys(dayRec || {}).forEach(subject=>{
+        const entries = dayRec[subject] || {};
+        const migrated = {};
+        Object.keys(entries).forEach(oldId=>{
+          const newId = idMap[oldId] || oldId;
+          if(newId !== oldId) changed = true;
+          // Prefer an existing current-ID value if both IDs somehow exist.
+          if(migrated[newId] === undefined || migrated[newId] === null){
+            migrated[newId] = entries[oldId];
+          }
+        });
+        dayRec[subject] = migrated;
+      });
+    });
+    if(changed) await saveRecords();
+  }
+}
+
+function buildStudentIdMap(oldStudents, currentStudents){
+  const map = {};
+  if(!Array.isArray(oldStudents) || !Array.isArray(currentStudents)) return map;
+
+  const currentByReg = new Map();
+  const currentByName = new Map();
+
+  currentStudents.forEach(s=>{
+    const reg = String(s.regNo || s.register_number || '').trim();
+    const name = String(s.name || '').trim().toLowerCase();
+    if(reg) currentByReg.set(reg, String(s.id));
+    if(name) currentByName.set(name, String(s.id));
+  });
+
+  oldStudents.forEach(old=>{
+    const oldId = String(old.id || '');
+    if(!oldId) return;
+    const reg = String(old.regNo || old.register_number || '').trim();
+    const name = String(old.name || '').trim().toLowerCase();
+
+    if(reg && currentByReg.has(reg)){
+      map[oldId] = currentByReg.get(reg);
+    }else if(name && currentByName.has(name)){
+      map[oldId] = currentByName.get(name);
+    }
+  });
+
+  return map;
+}
+
+async function saveRoster(){
+  try{
+    await appStorage.set(STORAGE_KEY_ROSTER, JSON.stringify({students: state.students, subjects: state.subjects}), false);
+  }catch(e){ console.error('roster save failed', e); showToast('Could not save — try again'); }
+}
+async function saveRecords(){
+  try{
+    await appStorage.set(STORAGE_KEY_RECORDS, JSON.stringify(state.records), false);
+  }catch(e){ console.error('records save failed', e); showToast('Could not save — try again'); }
+}
+
+// ---------- TABS ----------
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    ['take','roster','reports'].forEach(t=>{
+      document.getElementById('tab-'+t).style.display = (t===btn.dataset.tab) ? 'block' : 'none';
+    });
+    if(btn.dataset.tab === 'reports') renderReport();
+  });
+});
+
+// ---------- STUDENT ORDERING ----------
+function getSortedStudents(){
+  // Display students in ascending Register Number order.
+  return [...state.students].sort((a, b) => {
+    const aReg = String(a.regNo || '').trim();
+    const bReg = String(b.regNo || '').trim();
+    return aReg.localeCompare(bReg, undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
+
+// ---------- ROSTER: STUDENTS ----------
+function renderStudents(){
+  const body = document.getElementById('studentTableBody');
+  body.innerHTML = '';
+  document.getElementById('studentEmpty').style.display = state.students.length ? 'none' : 'block';
+  getSortedStudents().forEach((s, idx)=>{
+    const enrolled = !!(faceEnrollments[s.id] && faceEnrollments[s.id].descriptors && faceEnrollments[s.id].descriptors.length);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="text-center"><span class="roll-badge">${idx+1}</span></td>
+      <td class="text-center"><strong>${escapeHtml(s.regNo || '')}</strong></td>
+      <td>${escapeHtml(s.name)}</td>
+      <td class="text-center">
+        <span class="face-badge ${enrolled ? 'yes' : ''}">${enrolled ? 'Enrolled ✓' : 'Not enrolled'}</span>
+        <button class="enroll-btn" data-enroll="${s.id}">${enrolled ? 'Re-enroll Face' : 'Enroll Face'}</button>
+      </td>
+      <td class="text-center"><button class="danger" data-id="${s.id}">Remove</button></td>
+    `;
+    tr.querySelector('.danger').addEventListener('click', async ()=>{
+      state.students = state.students.filter(x=>x.id!==s.id);
+      if(faceEnrollments[s.id]){ delete faceEnrollments[s.id]; await saveFaceEnrollments(); }
+      await saveRoster();
+      renderStudents(); renderTakeTable(); renderReport();
+    });
+    tr.querySelector('[data-enroll]').addEventListener('click', ()=> openEnrollModal(s.id));
+    body.appendChild(tr);
+  });
+}
+
+document.getElementById('addStudentBtn').addEventListener('click', async ()=>{
+  const inputName = document.getElementById('newStudentName');
+  const inputRegNo = document.getElementById('newStudentRegNo');
+  const name = inputName.value.trim();
+  const regNo = inputRegNo.value.trim();
+
+  if(!name) { showToast('Please enter a student name'); return; }
+  if(!regNo) { showToast('Please enter a register number'); return; }
+  if(!/^\d+$/.test(regNo)){
+    showToast('Register number must contain digits only');
+    return;
+  }
+  if(state.students.some(s => String(s.regNo) === regNo)){
+    showToast('Register number already exists');
+    return;
+  }
+
+  try{
+    const response = await fetch(`${API_BASE}/api/students`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        name,
+        register_number: regNo
+      })
+    });
+    const data = await response.json().catch(()=>({}));
+    if(!response.ok || !data.success){
+      throw new Error(data.message || `HTTP ${response.status}`);
+    }
+
+    const s = data.student;
+    state.students.push({
+      id: String(s.id),
+      name: s.name,
+      regNo: String(s.regNo),
+      roll: state.students.length + 1,
+      department: s.department,
+      year: s.year,
+      section: s.section,
+      faceCount: 0
+    });
+    inputName.value = '';
+    inputRegNo.value = '';
+    await saveRoster();
+    renderStudents(); renderTakeTable(); renderReport();
+    showToast('Student added to backend ✓');
+  }catch(e){
+    console.error('Add student failed:', e);
+    showToast('Could not add student: ' + e.message);
+  }
+});
+
+document.getElementById('newStudentName').addEventListener('keydown', e=>{
+  if(e.key==='Enter') document.getElementById('addStudentBtn').click();
+});
+document.getElementById('newStudentRegNo').addEventListener('keydown', e=>{
+  if(e.key==='Enter') document.getElementById('newStudentName').focus();
+});
+
+// Live regex input filter
+document.getElementById('newStudentRegNo').addEventListener('input', e=>{
+  e.target.value = e.target.value.replace(/\D/g, '');
+});
+
+// ---------- ROSTER: SUBJECTS ----------
+function renderSubjects(){
+  const wrap = document.getElementById('subjectChips');
+  wrap.innerHTML = '';
+  state.subjects.forEach(sub=>{
+    const chip = document.createElement('span');
+    chip.className = 'subject-chip';
+    chip.innerHTML = `${escapeHtml(sub)} <button title="remove">✕</button>`;
+    chip.querySelector('button').addEventListener('click', async ()=>{
+      state.subjects = state.subjects.filter(x=>x!==sub);
+      await saveRoster();
+      renderSubjects(); renderSubjectSelect(); renderReport();
+    });
+    wrap.appendChild(chip);
+  });
+  renderSubjectSelect();
+}
+function renderSubjectSelect(){
+  const sel = document.getElementById('attSubject');
+  const current = sel.value;
+  sel.innerHTML = state.subjects.map(sub=>`<option value="${escapeAttr(sub)}">${escapeHtml(sub)}</option>`).join('');
+  if(state.subjects.includes(current)) sel.value = current;
+}
+document.getElementById('addSubjectBtn').addEventListener('click', async ()=>{
+  const input = document.getElementById('newSubjectName');
+  const name = input.value.trim();
+  if(!name || state.subjects.includes(name)) return;
+  state.subjects.push(name);
+  input.value='';
+  await saveRoster();
+  renderSubjects(); renderReport();
+});
+document.getElementById('newSubjectName').addEventListener('keydown', e=>{
+  if(e.key==='Enter') document.getElementById('addSubjectBtn').click();
+});
+
+// ---------- TAKE ATTENDANCE ----------
+let draftStatus = {}; // studentId -> 'P'/'A' for current date+subject being edited
+
+function renderTakeTable(){
+  const body = document.getElementById('takeTableBody');
+  body.innerHTML = '';
+  document.getElementById('takeEmpty').style.display = state.students.length ? 'none' : 'block';
+
+  const date = document.getElementById('attDate').value;
+  const subject = document.getElementById('attSubject').value;
+  const existing = (state.records[date] && state.records[date][subject]) || {};
+
+  getSortedStudents().forEach((s, idx)=>{
+    if(!(s.id in draftStatus)) draftStatus[s.id] = existing[s.id] || null;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="text-center"><span class="roll-badge">${idx+1}</span></td>
+      <td class="text-center"><strong>${escapeHtml(s.regNo || '')}</strong></td>
+      <td>${escapeHtml(s.name)}</td>
+      <td class="text-center">
+        <div class="status-toggle" data-id="${s.id}">
+          <button class="status-btn p" data-val="P">P</button>
+          <button class="status-btn a" data-val="A">A</button>
+        </div>
+      </td>
+    `;
+    body.appendChild(tr);
+    const toggle = tr.querySelector('.status-toggle');
+    toggle.querySelectorAll('button').forEach(btn=>{
+      if(draftStatus[s.id] === btn.dataset.val) btn.classList.add('on');
+      btn.addEventListener('click', ()=>{
+        draftStatus[s.id] = btn.dataset.val;
+        toggle.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+        btn.classList.add('on');
+      });
+    });
+  });
+}
+
+document.getElementById('attDate').addEventListener('change', ()=>{ draftStatus = {}; renderTakeTable(); });
+document.getElementById('attSubject').addEventListener('change', ()=>{ draftStatus = {}; renderTakeTable(); });
+
+document.getElementById('saveAttendanceBtn').addEventListener('click', async ()=>{
+  const date = document.getElementById('attDate').value;
+  const subject = document.getElementById('attSubject').value;
+  if(!date){ showToast('Pick a date first'); return; }
+  if(!subject){ showToast('Add a subject first'); return; }
+  if(!state.records[date]) state.records[date] = {};
+  state.records[date][subject] = {...draftStatus};
+  await saveRecords();
+  showToast(`Saved attendance for ${date} · ${subject}`);
+  renderReport();
+});
+
+// ---------- REPORTS ----------
+function computeStats(){
+  // per student per subject: {present, total}
+  const stats = {}; // studentId -> {subject -> {p,total}, overall: {p,total}}
+  state.students.forEach(s=>{
+    stats[s.id] = { overall: {p:0,total:0} };
+    state.subjects.forEach(sub=> stats[s.id][sub] = {p:0,total:0});
+  });
+  Object.keys(state.records).forEach(date=>{
+    const dayRec = state.records[date];
+    Object.keys(dayRec).forEach(subject=>{
+      const entries = dayRec[subject];
+      Object.keys(entries).forEach(studentId=>{
+        if(!stats[studentId]) return;
+        const val = entries[studentId];
+        if(!val) return;
+        if(!stats[studentId][subject]) stats[studentId][subject] = {p:0,total:0};
+        stats[studentId][subject].total += 1;
+        stats[studentId].overall.total += 1;
+        if(val === 'P'){
+          stats[studentId][subject].p += 1;
+          stats[studentId].overall.p += 1;
+        } 
+      });
+    });
+  });
+  return stats;
+}
+
+function pct(obj){
+  if(!obj || obj.total===0) return null;
+  return Math.round((obj.p/obj.total)*1000)/10;
+}
+
+function renderReport(){
+  const stats = computeStats();
+  const headRow = document.getElementById('reportHeadRow');
+  const body = document.getElementById('reportTableBody');
+  const hasData = state.students.length>0;
+  document.getElementById('reportEmpty').style.display = hasData ? 'none' : 'block';
+
+  headRow.innerHTML = `<th style="width:50px" class="text-center">Roll</th><th style="width:140px" class="text-center">Reg. No</th><th>Student</th>` +
+    state.subjects.map(sub=>`<th class="text-center col-pct">${escapeHtml(sub)}</th>`).join('') +
+    `<th class="text-center col-pct">OVERALL</th>`;
+
+  body.innerHTML = '';
+  getSortedStudents().forEach((s, idx)=>{
+    const st = stats[s.id];
+    const cells = state.subjects.map(sub=>{
+      const v = pct(st[sub]);
+      return cellHtml(v);
+    }).join('');
+    const overall = pct(st.overall);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="text-center"><span class="roll-badge">${idx+1}</span></td><td class="text-center"><strong>${escapeHtml(s.regNo || '')}</strong></td><td>${escapeHtml(s.name)}</td>${cells}${cellHtml(overall)}`;
+    body.appendChild(tr);
+  });
+}
+function cellHtml(v){
+  if(v===null) return `<td class="text-center"></td>`;
+  return `<td class="text-center"><span class="pct-val">${v}%</span></td>`;
+}
+
+// ---------- EXPORT TO EXCEL ----------
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const wb = XLSX.utils.book_new();
+  const usedSheetNames = new Set();
+
+  function safeSheetName(name){
+    let clean = (name || 'Subject').replace(/[\\\/\?\*\[\]:]/g, ' ').trim().slice(0,31) || 'Subject';
+    let base = clean, i = 2;
+    while(usedSheetNames.has(clean)){ clean = (base.slice(0,28) + ' ' + i).slice(0,31); i++; }
+    usedSheetNames.add(clean);
+    return clean;
+  }
+
+  // Work out which dates each subject actually has a recorded session for
+  const subjectDates = {};
+  state.subjects.forEach(sub => subjectDates[sub] = []);
+  Object.keys(state.records).sort().forEach(date=>{
+    const dayRec = state.records[date];
+    Object.keys(dayRec).forEach(subject=>{
+      if(!subjectDates[subject]) subjectDates[subject] = [];
+      if(!subjectDates[subject].includes(date)) subjectDates[subject].push(date);
+    });
+  });
+
+  // One sheet per subject: Roll, Register No, Name, one column per class date, then attendance %
+  state.subjects.forEach(subject=>{
+    const dates = subjectDates[subject] || [];
+    const header = ['Roll', 'Register No', 'Name', ...dates, 'Classes Attended', 'Total Classes', 'Attendance %'];
+    const rows = [header];
+    getSortedStudents().forEach((s, idx)=>{
+      let attended = 0, total = 0;
+      const dateCells = dates.map(date=>{
+        const val = state.records[date] && state.records[date][subject] ? state.records[date][subject][s.id] : undefined;
+        if(val === 'P'){ attended++; total++; return 'P'; }
+        if(val === 'A'){ total++; return 'A'; }
+        if(val === 'L'){ total++; return 'L'; }
+        return '';
+      });
+      const percent = total ? Math.round((attended/total)*1000)/10 : '';
+      rows.push([idx+1, s.regNo || '', s.name, ...dateCells, attended, total, percent===''? '' : percent + '%']);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:6},{wch:16},{wch:22}, ...dates.map(()=>({wch:11})), {wch:15},{wch:13},{wch:13}];
+    XLSX.utils.book_append_sheet(wb, ws, safeSheetName(subject));
+  });
+
+  // Overall summary sheet: one row per student, % per subject + overall %
+  const stats = computeStats();
+  const summaryHeader = ['Roll', 'Register No', 'Name', ...state.subjects, 'Overall %'];
+  const summaryRows = [summaryHeader];
+  getSortedStudents().forEach((s, idx)=>{
+    const st = stats[s.id];
+    const row = [idx+1, s.regNo || '', s.name];
+    state.subjects.forEach(sub=>{
+      const v = pct(st[sub]);
+      row.push(v===null ? '' : v + '%');
+    });
+    const overall = pct(st.overall);
+    row.push(overall===null ? '' : overall + '%');
+    summaryRows.push(row);
+  });
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+  wsSummary['!cols'] = [{wch:6},{wch:16},{wch:22}, ...state.subjects.map(()=>({wch:12})), {wch:12}];
+  XLSX.utils.book_append_sheet(wb, wsSummary, safeSheetName('Overall Summary'));
+
+  if(state.subjects.length === 0){
+    showToast('Add a subject first');
+    return;
+  }
+
+  XLSX.writeFile(wb, `attendance-register-${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Excel workbook downloaded');
+});
+
+// ---------- UTIL ----------
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function escapeAttr(str){ return escapeHtml(str); }
+
+// ================= FACE RECOGNITION ATTENDANCE =================
+const FACE_MODEL_URLS = [
+  'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model',
+  'https://unpkg.com/@vladmandic/face-api/model'
+];
+const STORAGE_KEY_FACE = 'face-enrollments';
+
+let faceEnrollments = {};   // studentId -> { studentId, descriptors: [ [128 floats], ... ] }
+let faceModelsReady = false;
+let faceMatcher = null;
+let attendanceStream = null;
+let recognitionTimer = null;
+let camAutoOffTimer = null;
+const CAM_AUTO_OFF_MS = 2 * 60 * 1000; // 2 minutes
+
+async function loadFaceModels(){
+  const msg = document.getElementById('faceModelMsg');
+  if(typeof faceapi === 'undefined'){
+    faceModelsReady = false;
+    msg.textContent = 'The face-api.js library itself did not load (blocked network request or offline). Check your internet connection and reload.';
+    msg.className = 'face-msg err';
+    return;
+  }
+  let lastError = null;
+  for(const url of FACE_MODEL_URLS){
+    try{
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(url),
+        faceapi.nets.faceLandmark68Net.loadFromUri(url),
+        faceapi.nets.faceRecognitionNet.loadFromUri(url)
+      ]);
+      faceModelsReady = true;
+      msg.textContent = 'Face recognition models loaded — ready to enroll and recognize.';
+      msg.className = 'face-msg ok';
+      rebuildFaceMatcher();
+      return;
+    }catch(e){
+      console.error('Face model load failed from', url, e);
+      lastError = e;
+    }
+  }
+  faceModelsReady = false;
+  const offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
+  if(offline){
+    msg.textContent = 'You appear to be offline. Face recognition models need an internet connection the first time they load. Connect and reload the page.';
+  } else {
+    msg.textContent = 'Could not load face recognition models from any source (' + (lastError ? lastError.message : 'unknown error') + '). This usually means outbound network requests are being blocked in this environment — try opening this file as a real webpage (e.g. via a local server at http://localhost) rather than inside a chat preview.';
+  }
+  msg.className = 'face-msg err';
+}
+
+async function loadFaceEnrollments(){
+  try{
+    const rec = await appStorage.get(STORAGE_KEY_FACE, false);
+    if(rec && rec.value) faceEnrollments = JSON.parse(rec.value) || {};
+  }catch(e){
+    faceEnrollments = {};
+  }
+
+  // Migrate face descriptors saved under the old local student IDs so
+  // recognition continues to work after connecting the roster to Flask.
+  const idMap = buildStudentIdMap(legacyRosterStudents, state.students);
+  const migrated = {};
+  let changed = false;
+
+  Object.keys(faceEnrollments).forEach(oldId=>{
+    const entry = faceEnrollments[oldId];
+    const newId = idMap[oldId] || oldId;
+    if(newId !== oldId) changed = true;
+    if(!entry || !Array.isArray(entry.descriptors)) return;
+
+    migrated[newId] = {
+      studentId: newId,
+      descriptors: entry.descriptors
+    };
+  });
+
+  faceEnrollments = migrated;
+
+  if(changed){
+    try{
+      await appStorage.set(STORAGE_KEY_FACE, JSON.stringify(faceEnrollments), false);
+    }catch(e){
+      console.error('face enrollment migration save failed', e);
+    }
+  }
+}
+async function saveFaceEnrollments(){
+  try{
+    await appStorage.set(STORAGE_KEY_FACE, JSON.stringify(faceEnrollments), false);
+  }catch(e){ console.error('face enrollment save failed', e); showToast('Could not save face enrollment — try again'); }
+  rebuildFaceMatcher();
+}
+
+function rebuildFaceMatcher(){
+  if(typeof faceapi === 'undefined' || !faceModelsReady) { faceMatcher = null; return; }
+  const labeled = Object.values(faceEnrollments)
+    .filter(entry => entry.descriptors && entry.descriptors.length)
+    .map(entry => new faceapi.LabeledFaceDescriptors(
+      entry.studentId,
+      entry.descriptors.map(d => new Float32Array(d))
+    ));
+  const threshold = parseFloat(document.getElementById('matchThreshold').value) || 0.5;
+  faceMatcher = labeled.length ? new faceapi.FaceMatcher(labeled, threshold) : null;
+}
+
+document.getElementById('matchThreshold').addEventListener('input', (e)=>{
+  document.getElementById('thresholdVal').textContent = parseFloat(e.target.value).toFixed(2);
+  rebuildFaceMatcher();
+});
+
+function setCamStatus(text, mode){
+  document.getElementById('camStatusText').textContent = text;
+  document.getElementById('camStatusDot').className = 'status-dot' + (mode ? (' ' + mode) : '');
+}
+
+async function startAttendanceCamera(){
+  if(!faceModelsReady){ showToast('Face models are still loading — please wait'); return; }
+  if(!window.isSecureContext){
+    showToast('Camera requires HTTPS or localhost'); return;
+  }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    showToast('This browser does not support camera access'); return;
+  }
+  try{
+    attendanceStream = await navigator.mediaDevices.getUserMedia({ video: { width:640, height:480 }, audio:false });
+  }catch(e){
+    let m = 'Could not access the camera.';
+    if(e.name === 'NotAllowedError') m = 'Camera permission was denied. Allow camera access and try again.';
+    else if(e.name === 'NotFoundError') m = 'No camera was found on this device.';
+    else if(e.name === 'NotReadableError') m = 'Camera is already in use by another application.';
+    setCamStatus(m, 'unknown');
+    showToast(m);
+    return;
+  }
+  const video = document.getElementById('camVideo');
+  video.srcObject = attendanceStream;
+  document.getElementById('camPlaceholder').style.display = 'none';
+  document.getElementById('startCamBtn').disabled = true;
+  document.getElementById('stopCamBtn').disabled = false;
+  setCamStatus('Camera on — looking for faces…', 'detecting');
+  rebuildFaceMatcher();
+  video.onloadedmetadata = ()=>{
+    const canvas = document.getElementById('camCanvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    recognitionTimer = setInterval(runRecognitionTick, 700);
+    camAutoOffTimer = setTimeout(()=>{
+      stopAttendanceCamera();
+      showToast('Camera turned off automatically after 2 minutes');
+    }, CAM_AUTO_OFF_MS);
+  };
+}
+
+function stopAttendanceCamera(){
+  if(recognitionTimer){ clearInterval(recognitionTimer); recognitionTimer = null; }
+  if(camAutoOffTimer){ clearTimeout(camAutoOffTimer); camAutoOffTimer = null; }
+  if(attendanceStream){ attendanceStream.getTracks().forEach(t=>t.stop()); attendanceStream = null; }
+  document.getElementById('camVideo').srcObject = null;
+  document.getElementById('camPlaceholder').style.display = 'flex';
+  document.getElementById('startCamBtn').disabled = false;
+  document.getElementById('stopCamBtn').disabled = true;
+  setCamStatus('Camera idle.', '');
+  const canvas = document.getElementById('camCanvas');
+  canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+  document.getElementById('detectedCard').classList.remove('show');
+}
+
+document.getElementById('startCamBtn').addEventListener('click', startAttendanceCamera);
+document.getElementById('stopCamBtn').addEventListener('click', stopAttendanceCamera);
+window.addEventListener('beforeunload', ()=>{ stopAttendanceCamera(); closeEnrollModal(); });
+
+async function runRecognitionTick(){
+  const video = document.getElementById('camVideo');
+  const canvas = document.getElementById('camCanvas');
+  if(!video || video.readyState < 2) return;
+
+  let detections;
+  try{
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+    detections = await faceapi.detectAllFaces(video, options).withFaceLandmarks().withFaceDescriptors();
+  }catch(e){ return; }
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(!detections.length){
+    setCamStatus('No face detected.', 'detecting');
+    return;
+  }
+
+  const date = document.getElementById('attDate').value;
+  const subject = document.getElementById('attSubject').value;
+  let anyRecognized = false;
+
+  detections.forEach(det=>{
+    const box = det.detection.box;
+    let label = 'Unknown';
+    let boxColor = '#a63a3a';
+    let matchedStudent = null;
+    let distance = null;
+
+    if(faceMatcher){
+      const best = faceMatcher.findBestMatch(det.descriptor);
+      if(best.label !== 'unknown'){
+        matchedStudent = state.students.find(s=>s.id === best.label);
+        distance = best.distance;
+        if(matchedStudent){ boxColor = '#2f5233'; label = matchedStudent.name; }
+      }
+    }
+
+    ctx.strokeStyle = boxColor;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(box.x, box.y, box.width, box.height);
+    ctx.fillStyle = boxColor;
+    ctx.font = '15px Inter, sans-serif';
+    ctx.fillText(label, box.x, Math.max(box.y - 8, 12));
+
+    if(matchedStudent){
+      anyRecognized = true;
+      handleRecognizedStudent(matchedStudent, distance, date, subject);
+    }
+  });
+
+  if(!anyRecognized){
+    setCamStatus(detections.length + ' face(s) detected — not recognized.', 'unknown');
+    document.getElementById('detName').textContent = 'Unknown student — face not recognized.';
+    document.getElementById('detRegNo').textContent = '—';
+    document.getElementById('detRoll').textContent = '—';
+    document.getElementById('detConfidence').textContent = '—';
+    const statusEl = document.getElementById('detStatus');
+    statusEl.textContent = '';
+    statusEl.className = 'dstat unknown';
+    document.getElementById('detectedCard').classList.add('show');
+  }
+}
+
+function handleRecognizedStudent(student, distance, date, subject){
+  setCamStatus('Recognized: ' + student.name, 'recognized');
+  const idx = getSortedStudents().findIndex(s=>s.id===student.id);
+  document.getElementById('detName').textContent = student.name;
+  document.getElementById('detRegNo').textContent = student.regNo || '—';
+  document.getElementById('detRoll').textContent = (idx>=0 ? idx+1 : '—');
+  document.getElementById('detConfidence').textContent = distance!==null ? (Math.max(0, Math.round((1-distance)*100)) + '% match') : '—';
+  const statusEl = document.getElementById('detStatus');
+  document.getElementById('detectedCard').classList.add('show');
+
+  if(!date){ statusEl.textContent = 'Please select a date first.'; statusEl.className = 'dstat warn'; return; }
+  if(!subject){ statusEl.textContent = 'Please add/select a subject first.'; statusEl.className = 'dstat warn'; return; }
+
+  if(draftStatus[student.id] === 'P'){
+    statusEl.textContent = `${student.name} is already marked present.`;
+    statusEl.className = 'dstat warn';
+    return;
+  }
+
+  draftStatus[student.id] = 'P';
+  renderTakeTable();
+  statusEl.textContent = '✓ PRESENT';
+  statusEl.className = 'dstat present';
+
+  if(document.getElementById('autoSaveToggle').checked){
+    if(!state.records[date]) state.records[date] = {};
+    state.records[date][subject] = {...draftStatus};
+    saveRecords().then(()=>renderReport()).catch(()=>renderReport());
+  }
+}
+
+// ---------- FACE ENROLLMENT ----------
+let enrollStream = null;
+let enrollTimer = null;
+let enrollAutoOffTimer = null;
+let enrollStudentId = null;
+let enrollDescriptors = [];
+const ENROLL_POSES = ['Look straight at the camera', 'Turn slightly left', 'Turn slightly right', 'Tilt your head slightly up', 'Tilt your head slightly down'];
+let enrollStep = 0;
+
+function renderEnrollProgress(){
+  const wrap = document.getElementById('enrollProgress');
+  wrap.innerHTML = ENROLL_POSES.map((_,i)=>{
+    let cls = 'enroll-dot';
+    if(i < enrollStep) cls += ' done';
+    else if(i === enrollStep) cls += ' active';
+    return `<span class="${cls}"></span>`;
+  }).join('');
+  document.getElementById('enrollPrompt').textContent = enrollStep < ENROLL_POSES.length ? ENROLL_POSES[enrollStep] : 'All poses captured!';
+}
+
+async function openEnrollModal(studentId){
+  if(!faceModelsReady){ showToast('Face models are still loading — please wait'); return; }
+  if(!window.isSecureContext){ showToast('Camera requires HTTPS or localhost'); return; }
+  enrollStudentId = studentId;
+  enrollDescriptors = [];
+  enrollStep = 0;
+  const student = state.students.find(s=>s.id===studentId);
+  document.getElementById('enrollStudentName').textContent = student ? student.name : '';
+  document.getElementById('enrollModal').classList.add('show');
+  document.getElementById('enrollMsg').textContent = '';
+  document.getElementById('enrollMsg').className = 'face-msg';
+  document.getElementById('captureSampleBtn').disabled = true;
+  renderEnrollProgress();
+  try{
+    enrollStream = await navigator.mediaDevices.getUserMedia({ video:{ width:640, height:480 }, audio:false });
+  }catch(e){
+    let m = 'Could not access camera for enrollment.';
+    if(e.name === 'NotAllowedError') m = 'Camera permission was denied.';
+    else if(e.name === 'NotFoundError') m = 'No camera found.';
+    else if(e.name === 'NotReadableError') m = 'Camera already in use by another app.';
+    document.getElementById('enrollMsg').textContent = m;
+    document.getElementById('enrollMsg').className = 'face-msg err';
+    return;
+  }
+  const video = document.getElementById('enrollVideo');
+  video.srcObject = enrollStream;
+  document.getElementById('enrollPlaceholder').style.display = 'none';
+  video.onloadedmetadata = ()=>{
+    const canvas = document.getElementById('enrollCanvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    enrollTimer = setInterval(enrollDetectTick, 400);
+    enrollAutoOffTimer = setTimeout(()=>{
+      const msg = document.getElementById('enrollMsg');
+      msg.textContent = 'Enrollment camera turned off automatically after 2 minutes of inactivity.';
+      msg.className = 'face-msg err';
+      closeEnrollModal();
+    }, CAM_AUTO_OFF_MS);
+  };
+}
+
+async function enrollDetectTick(){
+  const video = document.getElementById('enrollVideo');
+  const canvas = document.getElementById('enrollCanvas');
+  if(!video || video.readyState < 2) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  try{
+    const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({inputSize:224})).withFaceLandmarks();
+    if(det){
+      const box = det.detection.box;
+      ctx.strokeStyle = '#c9a227';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(box.x, box.y, box.width, box.height);
+      document.getElementById('captureSampleBtn').disabled = false;
+    } else {
+      document.getElementById('captureSampleBtn').disabled = true;
+    }
+  }catch(e){ /* transient — ignore this tick */ }
+}
+
+document.getElementById('captureSampleBtn').addEventListener('click', async ()=>{
+  const video = document.getElementById('enrollVideo');
+  const msg = document.getElementById('enrollMsg');
+  try{
+    const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({inputSize:224}))
+      .withFaceLandmarks().withFaceDescriptor();
+    if(!det){
+      msg.textContent = 'No face detected — please face the camera and try again.';
+      msg.className = 'face-msg err';
+      return;
+    }
+    enrollDescriptors.push(Array.from(det.descriptor));
+    enrollStep++;
+    msg.textContent = `Captured sample ${enrollStep} of ${ENROLL_POSES.length}.`;
+    msg.className = 'face-msg ok';
+    renderEnrollProgress();
+    if(enrollStep >= ENROLL_POSES.length){
+      await finishEnrollment();
+    }
+  }catch(e){
+    console.error(e);
+    msg.textContent = 'Could not capture sample — please try again.';
+    msg.className = 'face-msg err';
+  }
+});
+
+async function finishEnrollment(){
+  faceEnrollments[enrollStudentId] = { studentId: enrollStudentId, descriptors: enrollDescriptors };
+  await saveFaceEnrollments();
+  document.getElementById('enrollMsg').textContent = 'Enrollment complete — face enrolled successfully.';
+  document.getElementById('enrollMsg').className = 'face-msg ok';
+  document.getElementById('captureSampleBtn').disabled = true;
+  renderStudents();
+  setTimeout(closeEnrollModal, 1200);
+}
+
+function closeEnrollModal(){
+  if(enrollTimer){ clearInterval(enrollTimer); enrollTimer = null; }
+  if(enrollAutoOffTimer){ clearTimeout(enrollAutoOffTimer); enrollAutoOffTimer = null; }
+  if(enrollStream){ enrollStream.getTracks().forEach(t=>t.stop()); enrollStream = null; }
+  const video = document.getElementById('enrollVideo');
+  if(video) video.srcObject = null;
+  const ph = document.getElementById('enrollPlaceholder');
+  if(ph) ph.style.display = 'flex';
+  const modal = document.getElementById('enrollModal');
+  if(modal) modal.classList.remove('show');
+  const btn = document.getElementById('captureSampleBtn');
+  if(btn) btn.disabled = true;
+  enrollStudentId = null;
+}
+document.getElementById('cancelEnrollBtn').addEventListener('click', closeEnrollModal);
+
+// ---------- INIT ----------
+(async function init(){
+  document.getElementById('attDate').value = new Date().toISOString().slice(0,10);
+  await loadState();
+  if(state.subjects.length===0){
+    state.subjects = ['Subject 1','Subject 2','Subject 3'];
+    await saveRoster();
+  }
+  await loadFaceEnrollments();
+  renderStudents();
+  renderSubjects();
+  renderTakeTable();
+  renderReport();
+  loadFaceModels(); // async, updates its own status message — doesn't block the rest of the UI
+})();
+</script>
+</body>
+</html>

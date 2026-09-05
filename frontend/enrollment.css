@@ -1,0 +1,181 @@
+/* ==========================================================================
+   Face Enrollment — styling
+   Shares the "ledger" visual identity of the existing attendance register:
+   warm paper background, navy ink, gold accent, Spectral/Inter/IBM Plex Mono.
+   ========================================================================== */
+
+:root{
+  --paper:#faf6ec;
+  --paper-line:#ded4bd;
+  --ink:#1e2a44;
+  --ink-soft:#4c5773;
+  --present:#2f5233;
+  --present-bg:#e6ede1;
+  --absent:#a63a3a;
+  --absent-bg:#f3e3e0;
+  --late:#a67c1e;
+  --late-bg:#f4ecd8;
+  --gold:#c9a227;
+  --white:#fffdf8;
+  --shadow: 0 1px 2px rgba(30,42,68,0.08), 0 4px 14px rgba(30,42,68,0.06);
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--paper);
+  background-image:linear-gradient(var(--paper-line) 1px, transparent 1px);
+  background-size:100% 2.15em;
+  color:var(--ink);
+  font-family:'Inter',sans-serif;
+  padding:0 0 60px 0;
+}
+header{
+  padding:32px;
+  border-bottom:2px solid var(--ink);
+  margin-bottom:28px;
+  background:var(--paper);
+}
+h1{
+  font-family:'Spectral',serif;
+  font-weight:700;
+  font-size:28px;
+  margin:0 0 4px 0;
+}
+header .sub{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12.5px;
+  color:var(--ink-soft);
+}
+
+main{
+  max-width:1180px;
+  margin:0 auto;
+  padding:0 32px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:24px;
+  align-items:start;
+}
+@media (max-width:880px){
+  main{ grid-template-columns:1fr; }
+}
+
+.panel{
+  background:var(--white);
+  border:1px solid var(--paper-line);
+  border-radius:6px;
+  box-shadow:var(--shadow);
+  padding:24px;
+}
+.panel h2{
+  font-family:'Spectral',serif;
+  font-size:18px;
+  margin:0 0 4px 0;
+}
+.panel .hint{ color:var(--ink-soft); font-size:13px; margin:0 0 18px 0; }
+
+/* ---- form ---- */
+.field{ display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
+.field label{
+  font-size:11.5px; font-weight:600; color:var(--ink-soft);
+  text-transform:uppercase; letter-spacing:0.05em;
+}
+input, select{
+  font-family:'Inter',sans-serif; font-size:14px; padding:10px 11px;
+  border:1.5px solid var(--paper-line); border-radius:4px;
+  background:var(--white); color:var(--ink); width:100%;
+}
+input:focus, select:focus{ outline:none; border-color:var(--ink); }
+.field .error-msg{ color:var(--absent); font-size:11.5px; display:none; }
+.field.invalid input, .field.invalid select{ border-color:var(--absent); }
+.field.invalid .error-msg{ display:block; }
+.field.valid input, .field.valid select{ border-color:var(--present); }
+
+.row-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+button.primary{
+  font-family:'Inter',sans-serif; font-weight:600; font-size:14px;
+  background:var(--ink); color:var(--white); border:none;
+  padding:12px 20px; border-radius:4px; cursor:pointer; width:100%;
+}
+button.primary:hover:not(:disabled){ background:#12192c; }
+button.primary:disabled{ background:#c7cbd6; cursor:not-allowed; }
+button.ghost{
+  font-family:'Inter',sans-serif; font-weight:600; font-size:13px;
+  background:transparent; color:var(--ink); border:1.5px solid var(--paper-line);
+  padding:9px 14px; border-radius:4px; cursor:pointer;
+}
+button.ghost:hover{ border-color:var(--ink); }
+
+/* ---- camera panel ---- */
+.cam-wrap{
+  position:relative; width:100%; background:#10192c;
+  border-radius:8px; overflow:hidden; aspect-ratio:4/3;
+}
+.cam-wrap video, .cam-wrap canvas{
+  position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover;
+}
+.cam-placeholder{
+  display:flex; align-items:center; justify-content:center; height:100%;
+  color:#9aa6c2; font-family:'IBM Plex Mono',monospace; font-size:12.5px;
+  text-align:center; padding:20px;
+}
+
+.status-bar{
+  margin-top:14px; display:flex; align-items:center; justify-content:space-between;
+  gap:10px; flex-wrap:wrap;
+}
+.status-badge{
+  display:inline-flex; align-items:center; gap:7px;
+  font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:600;
+  padding:7px 13px; border-radius:14px;
+}
+.status-badge .dot{ width:7px; height:7px; border-radius:50%; background:currentColor; }
+.status-badge.ok{ background:var(--present-bg); color:var(--present); }
+.status-badge.warn{ background:var(--late-bg); color:var(--late); }
+.status-badge.bad{ background:var(--absent-bg); color:var(--absent); }
+.status-badge.idle{ background:#eef0f5; color:var(--ink-soft); }
+
+.liveness-line{
+  font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft);
+  margin-top:8px; min-height:16px;
+}
+
+.progress-wrap{ margin-top:16px; }
+.progress-track{
+  width:100%; height:10px; background:#eceff5; border-radius:6px; overflow:hidden;
+}
+.progress-fill{
+  height:100%; width:0%; background:var(--gold);
+  transition:width .2s ease; border-radius:6px;
+}
+.progress-meta{
+  display:flex; justify-content:space-between; margin-top:6px;
+  font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--ink-soft);
+}
+
+.pose-checklist{
+  display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;
+}
+.pose-chip{
+  font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600;
+  padding:6px 11px; border-radius:14px; border:1.5px solid var(--paper-line);
+  color:var(--ink-soft); background:var(--white);
+}
+.pose-chip.done{ background:var(--present-bg); color:var(--present); border-color:var(--present); }
+.pose-chip.active{ border-color:var(--gold); color:var(--ink); }
+
+.cam-actions{ display:flex; gap:10px; margin-top:16px; }
+.cam-actions button{ flex:1; }
+
+.toast{
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+  background:var(--ink); color:var(--white); padding:11px 20px; border-radius:5px;
+  font-size:13px; font-family:'Inter',sans-serif; box-shadow:var(--shadow);
+  opacity:0; transition:opacity .25s; pointer-events:none; z-index:50; max-width:90vw; text-align:center;
+}
+.toast.show{ opacity:1; }
+.toast.error{ background:var(--absent); }
+.toast.success{ background:var(--present); }
+
+.footnote{ font-size:11.5px; color:var(--ink-soft); margin-top:14px; line-height:1.5; }

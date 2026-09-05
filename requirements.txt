@@ -1,0 +1,11 @@
+
+flask==3.0.3
+flask-cors==4.0.1
+opencv-python==4.10.0.84
+mediapipe==0.10.14
+numpy==1.26.4
+Pillow>=8.0.0
+click>=6.0
+scipy>=0.17.0
+dlib-bin==20.0.1
+face_recognition_models==0.3.0
