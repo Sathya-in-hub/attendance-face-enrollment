@@ -1,121 +1,129 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Face Enrollment — Digital Attendance System</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/face-api.js/0.22.2/face-api.min.js"></script>
-<link rel="stylesheet" href="enrollment.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Face Enrollment — Digital Attendance System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <link rel="stylesheet" href="enrollment.css">
 </head>
+
 <body>
 
-<header>
-  <h1>Face Enrollment</h1>
-  <div class="sub">Digital Attendance System · Register a student's face before they can be marked present by camera</div>
-</header>
-
-<main>
-  <!-- ============================== LEFT: STUDENT FORM ============================== -->
-  <section class="panel" id="formPanel">
-    <h2>Student details</h2>
-    <p class="hint">All fields are required before enrollment can be submitted.</p>
-
-    <div class="field" id="field-name">
-      <label for="inpName">Student name</label>
-      <input type="text" id="inpName" placeholder="e.g. Ananya Rao" autocomplete="off">
-      <span class="error-msg">Enter the student's full name.</span>
+  <header>
+    <h1>Face Enrollment</h1>
+    <div class="sub">Digital Attendance System · Register a student's face before they can be marked present by camera
     </div>
+  </header>
 
-    <div class="row-2">
-      <div class="field" id="field-regno">
-        <label for="inpRegNo">Register number</label>
-        <input type="text" id="inpRegNo" placeholder="e.g. 21CS045" autocomplete="off">
-        <span class="error-msg">Enter a unique register number.</span>
+  <main>
+    <!-- ============================== LEFT: STUDENT FORM ============================== -->
+    <section class="panel" id="formPanel">
+      <h2>Student details</h2>
+      <p class="hint">All fields are required before enrollment can be submitted.</p>
+
+      <div class="field" id="field-name">
+        <label for="inpName">Student name</label>
+        <input type="text" id="inpName" placeholder="e.g. Ananya Rao" autocomplete="off">
+        <span class="error-msg">Enter the student's full name.</span>
       </div>
-      <div class="field" id="field-dept">
-        <label for="inpDept">Department</label>
-        <input type="text" id="inpDept" placeholder="e.g. Computer Science" autocomplete="off">
-        <span class="error-msg">Enter a department.</span>
+
+      <div class="row-2">
+        <div class="field" id="field-regno">
+          <label for="inpRegNo">Register number</label>
+          <input type="text" id="inpRegNo" placeholder="e.g. 21CS045" autocomplete="off">
+          <span class="error-msg">Enter a unique register number.</span>
+        </div>
+        <div class="field" id="field-dept">
+          <label for="inpDept">Department</label>
+          <input type="text" id="inpDept" placeholder="e.g. Computer Science" autocomplete="off">
+          <span class="error-msg">Enter a department.</span>
+        </div>
       </div>
-    </div>
 
-    <div class="row-2">
-      <div class="field" id="field-year">
-        <label for="inpYear">Year</label>
-        <select id="inpYear">
-          <option value="">Select year</option>
-          <option>1st Year</option>
-          <option>2nd Year</option>
-          <option>3rd Year</option>
-          <option>4th Year</option>
-        </select>
-        <span class="error-msg">Select a year.</span>
+      <div class="row-2">
+        <div class="field" id="field-year">
+          <label for="inpYear">Year</label>
+          <select id="inpYear">
+            <option value="">Select year</option>
+            <option>1st Year</option>
+            <option>2nd Year</option>
+            <option>3rd Year</option>
+            <option>4th Year</option>
+          </select>
+          <span class="error-msg">Select a year.</span>
+        </div>
+        <div class="field" id="field-section">
+          <label for="inpSection">Section</label>
+          <input type="text" id="inpSection" placeholder="e.g. A" autocomplete="off">
+          <span class="error-msg">Enter a section.</span>
+        </div>
       </div>
-      <div class="field" id="field-section">
-        <label for="inpSection">Section</label>
-        <input type="text" id="inpSection" placeholder="e.g. A" autocomplete="off">
-        <span class="error-msg">Enter a section.</span>
+
+      <p class="footnote">
+        Once the form is valid and exactly one face is steadily detected, the capture button on the
+        right becomes active. Capture takes about 20–30 seconds and asks you to turn your head through
+        five positions to build a robust face profile.
+      </p>
+    </section>
+
+    <!-- ============================== RIGHT: CAMERA / CAPTURE ============================== -->
+    <section class="panel" id="camPanel">
+      <h2>Live camera</h2>
+      <p class="hint">Center your face, look directly at the camera, and hold still until capture completes.</p>
+
+      <div class="cam-wrap" id="camWrap">
+        <div class="cam-placeholder" id="camPlaceholder">
+          Requesting camera access…<br>Allow camera permissions when prompted.
+        </div>
+        <video id="video" autoplay muted playsinline style="display:none;"></video>
+        <canvas id="overlay" style="display:none;"></canvas>
       </div>
-    </div>
 
-    <p class="footnote">
-      Once the form is valid and exactly one face is steadily detected, the capture button on the
-      right becomes active. Capture takes about 20–30 seconds and asks you to turn your head through
-      five positions to build a robust face profile.
-    </p>
-  </section>
-
-  <!-- ============================== RIGHT: CAMERA / CAPTURE ============================== -->
-  <section class="panel" id="camPanel">
-    <h2>Live camera</h2>
-    <p class="hint">Center your face, look directly at the camera, and hold still until capture completes.</p>
-
-    <div class="cam-wrap" id="camWrap">
-      <div class="cam-placeholder" id="camPlaceholder">
-        Requesting camera access…<br>Allow camera permissions when prompted.
+      <div class="status-bar">
+        <span class="status-badge idle" id="faceStatusBadge"><span class="dot"></span> Initializing…</span>
+        <span class="status-badge idle" id="livenessBadge"><span class="dot"></span> Liveness: waiting</span>
       </div>
-      <video id="video" autoplay muted playsinline style="display:none;"></video>
-      <canvas id="overlay" style="display:none;"></canvas>
-    </div>
+      <div class="liveness-line" id="livenessLine"></div>
 
-    <div class="status-bar">
-      <span class="status-badge idle" id="faceStatusBadge"><span class="dot"></span> Initializing…</span>
-      <span class="status-badge idle" id="livenessBadge"><span class="dot"></span> Liveness: waiting</span>
-    </div>
-    <div class="liveness-line" id="livenessLine"></div>
-
-    <div class="pose-checklist" id="poseChecklist">
-      <span class="pose-chip" data-pose="front">Front</span>
-      <span class="pose-chip" data-pose="left">Left</span>
-      <span class="pose-chip" data-pose="right">Right</span>
-      <span class="pose-chip" data-pose="up">Slight up</span>
-      <span class="pose-chip" data-pose="down">Slight down</span>
-    </div>
-
-    <div class="progress-wrap">
-      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-      <div class="progress-meta">
-        <span id="progressLabel">0% captured</span>
-        <span id="progressCount">0 / 40 frames</span>
+      <div class="pose-checklist" id="poseChecklist">
+        <span class="pose-chip" data-pose="front">Front</span>
+        <span class="pose-chip" data-pose="left">Left</span>
+        <span class="pose-chip" data-pose="right">Right</span>
+        <span class="pose-chip" data-pose="up">Slight up</span>
+        <span class="pose-chip" data-pose="down">Slight down</span>
       </div>
-    </div>
 
-    <div class="cam-actions">
-      <button class="ghost" id="resetBtn">Reset</button>
-      <button class="primary" id="captureBtn" disabled>Capture &amp; Enroll</button>
-    </div>
+      <div class="progress-wrap">
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-meta">
+          <span id="progressLabel">0% captured</span>
+          <span id="progressCount">0 / 40 frames</span>
+        </div>
+      </div>
 
-    <p class="footnote">
-      Frames are validated again on the server (blur, brightness, centering, size, duplicate-face
-      check) before anything is saved — the in-browser checks here are just for instant feedback.
-    </p>
-  </section>
-</main>
+      <div class="cam-actions">
+        <button class="ghost" id="resetBtn">Reset</button>
+        <button class="primary" id="captureBtn" disabled>Capture &amp; Enroll</button>
+      </div>
 
-<div class="toast" id="toast"></div>
+      <p class="footnote">
+        Frames are validated again on the server (blur, brightness, centering, size, duplicate-face
+        check) before anything is saved — the in-browser checks here are just for instant feedback.
+      </p>
+    </section>
+  </main>
 
-<script src="enrollment.js"></script>
+  <div class="toast" id="toast"></div>
+
+  <script src="enrollment.js"></script>
 </body>
+
 </html>

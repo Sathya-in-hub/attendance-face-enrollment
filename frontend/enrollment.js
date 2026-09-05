@@ -6,8 +6,10 @@
    of truth for storage.
    ========================================================================== */
 
+// const API_BASE = "https://attendance-face-enrollment.onrender.com";
+// const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights";
 const API_BASE = "https://attendance-face-enrollment.onrender.com";
-const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights";
+const MODEL_URL = "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights";
 
 const TARGET_FRAMES = 40;           // total frames to capture across all poses
 const POSES = ["front", "left", "right", "up", "down"];
@@ -107,11 +109,23 @@ function updateCaptureButtonState() {
 }
 
 // ============================================================== CAMERA + MODELS
-
 async function loadModels() {
-  await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-  await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-  modelsReady = true;
+  try {
+    console.log("Loading Tiny Face Detector...");
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    console.log("Tiny Face Detector loaded.");
+
+    console.log("Loading Face Landmark 68...");
+    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+    console.log("Face Landmark 68 loaded.");
+
+    modelsReady = true;
+    console.log("All face-api models loaded successfully.");
+  } catch (error) {
+    modelsReady = false;
+    console.error("FACE API MODEL ERROR:", error);
+    throw error;
+  }
 }
 async function startCamera() {
   try {
