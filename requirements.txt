@@ -8,3 +8,4 @@ click>=6.0
 scipy>=0.17.0
 dlib-bin==20.0.1
 face_recognition_models==0.3.0
+gunicorn==23.0.0
