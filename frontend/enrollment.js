@@ -113,28 +113,77 @@ async function loadModels() {
   await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
   modelsReady = true;
 }
-
 async function startCamera() {
   try {
+    // Check whether the browser supports camera access
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error(
+        "Camera access is not supported. Please use HTTPS or localhost."
+      );
+    }
+
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 640, height: 480, facingMode: "user" },
-      audio: false,
+      video: {
+        facingMode: { ideal: "user" },
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      },
+      audio: false
     });
+
     video.srcObject = stream;
-    await new Promise(resolve => { video.onloadedmetadata = resolve; });
-    video.play();
-    camPlaceholder.style.display = "none";
-    video.style.display = "block";
-    overlay.style.display = "block";
-    overlay.width = video.clientWidth;
-    overlay.height = video.clientHeight;
+
+    video.onloadedmetadata = async () => {
+      try {
+        await video.play();
+
+        camPlaceholder.style.display = "none";
+        video.style.display = "block";
+        overlay.style.display = "block";
+
+        overlay.width = video.videoWidth;
+        overlay.height = video.videoHeight;
+
+        setBadge(faceStatusBadge, "Camera ready", "ok");
+
+      } catch (playError) {
+        console.error("Video play error:", playError);
+        setBadge(faceStatusBadge, "Camera unavailable", "bad");
+      }
+    };
+
   } catch (err) {
-    console.error(err);
+    console.error("Camera error:", err);
+
     camPlaceholder.style.display = "flex";
-    camPlaceholder.textContent =
-      "Could not access the camera. Check browser permissions and that no other app is using it.";
+    video.style.display = "none";
+    overlay.style.display = "none";
+
+    let message = "Camera access failed.";
+
+    if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+      message =
+        "Camera permission was denied. Please allow camera access in your browser settings and reload this page.";
+    } else if (err.name === "NotFoundError") {
+      message =
+        "No camera was found. Please connect a camera and try again.";
+    } else if (err.name === "NotReadableError") {
+      message =
+        "The camera is already being used by another application.";
+    } else if (err.name === "SecurityError") {
+      message =
+        "Camera access requires HTTPS. Open this website using an HTTPS URL.";
+    }
+
+    camPlaceholder.innerHTML = `
+      <strong>${message}</strong>
+      <br><br>
+      <small>
+        Make sure your browser has permission to use the camera.
+      </small>
+    `;
+
     setBadge(faceStatusBadge, "Camera unavailable", "bad");
-    throw err;
   }
 }
 
